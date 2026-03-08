@@ -48,23 +48,16 @@ const state = {
 // ============================================================
 
 /**
- * Minimal Supabase REST client using fetch.
- * We use the REST API directly for simplicity without needing
- * the full Supabase JS SDK bundle.
+ * Minimal Supabase REST client using direct fetch calls.
+ * Uses a simple query builder that is NOT async until .execute() is called.
  */
 const supabase = {
-  /**
-   * Query a table with optional filters/selects
-   * @param {string} table - Table name
-   * @param {string} select - Columns to select (default: *)
-   * @param {Object} filters - Key/value filter pairs
-   * @returns {Promise<Array>} - Array of rows
-   */
-  async from(table) {
-    return {
+  from(table) {
+    const builder = {
       _table: table,
       _select: '*',
       _filters: [],
+      _order: null,
 
       select(cols) {
         this._select = cols;
@@ -72,7 +65,7 @@ const supabase = {
       },
 
       eq(column, value) {
-        this._filters.push(`${column}=eq.${value}`);
+        this._filters.push(`${column}=eq.${encodeURIComponent(value)}`);
         return this;
       },
 
@@ -81,32 +74,31 @@ const supabase = {
         return this;
       },
 
-      async then(resolve, reject) {
-        try {
-          let url = `${SUPABASE_CONFIG.url}/rest/v1/${this._table}?select=${this._select}`;
-          if (this._filters.length) url += '&' + this._filters.join('&');
-          if (this._order) url += `&order=${this._order}`;
+      async execute() {
+        let url = `${SUPABASE_CONFIG.url}/rest/v1/${this._table}?select=${encodeURIComponent(this._select)}`;
+        if (this._filters.length) url += '&' + this._filters.join('&');
+        if (this._order) url += `&order=${this._order}`;
 
-          const res = await fetch(url, {
-            headers: {
-              'apikey': SUPABASE_CONFIG.key,
-              'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
-              'Content-Type': 'application/json',
-            }
-          });
-
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || 'Supabase query failed');
+        const res = await fetch(url, {
+          headers: {
+            'apikey': SUPABASE_CONFIG.key,
+            'Authorization': `Bearer ${SUPABASE_CONFIG.key}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
           }
+        });
 
-          const data = await res.json();
-          resolve({ data, error: null });
-        } catch (e) {
-          reject({ data: null, error: e });
+        if (!res.ok) {
+          let msg = 'Supabase query failed';
+          try { msg = (await res.json()).message || msg; } catch(_) {}
+          throw new Error(msg);
         }
+
+        const data = await res.json();
+        return { data, error: null };
       }
     };
+    return builder;
   }
 };
 
@@ -198,7 +190,8 @@ async function loadCarBrands() {
     const { data, error } = await supabase
       .from('car_brands')
       .select('id,name_en,name_mm')
-      .order('name_en', { ascending: true });
+      .order('name_en', { ascending: true })
+      .execute();
 
     if (error) throw error;
 
@@ -237,7 +230,8 @@ async function loadCarModels(brandId) {
       .from('car_models')
       .select('id,brand_id,name_en,name_mm')
       .eq('brand_id', brandId)
-      .order('name_en', { ascending: true });
+      .order('name_en', { ascending: true })
+      .execute();
 
     if (error) throw error;
 
@@ -269,7 +263,8 @@ async function loadCarProblems() {
     const { data, error } = await supabase
       .from('car_problems')
       .select('id,name_en,name_mm,description')
-      .order('name_en', { ascending: true });
+      .order('name_en', { ascending: true })
+      .execute();
 
     if (error) throw error;
 
@@ -298,7 +293,8 @@ async function loadRepairPrice(problemId) {
     const { data, error } = await supabase
       .from('repair_prices')
       .select('min_price,max_price,problem_id')
-      .eq('problem_id', problemId);
+      .eq('problem_id', problemId)
+      .execute();
 
     if (error) throw error;
 
@@ -322,7 +318,8 @@ async function loadRepairShops() {
     const { data, error } = await supabase
       .from('repair_shops')
       .select('id,shop_name,address,city,latitude,longitude,phone')
-      .order('shop_name', { ascending: true });
+      .order('shop_name', { ascending: true })
+      .execute();
 
     if (error) throw error;
 
