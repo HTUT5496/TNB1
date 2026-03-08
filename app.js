@@ -19,8 +19,8 @@
 
 /** Supabase project configuration */
 const SUPABASE_CONFIG = {
-  url: 'httpcos://fpjcpwedvowvbnebxcyv.supabase.',
-  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwamNwd2Vkdm93dmJuZWJ4Y3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5ODM3MTcsImV4cCI6MjA4ODU1OTcxN30.b-APeOBKMSWCOqZD3S9YpxJpMFq8VLo1ytxh2BhmhXQ'
+  url: 'https://fpjcpwedvowvbnebxcyv.supabase.co',
+  key: 'sb_publishable_sJPO4Dg2wKLlWKanfU2lsg_jA5jReRM'
 };
 
 /** Myanmar center coordinates for map */
@@ -427,20 +427,26 @@ function renderShopList(shops) {
  * Initialize the Leaflet map centered on Myanmar
  */
 function initMap() {
-  // Prevent double-init
   if (state.map) return;
-
-  state.map = L.map('map', {
-    center: [MYANMAR_CENTER.lat, MYANMAR_CENTER.lng],
-    zoom: DEFAULT_ZOOM,
-    zoomControl: true,
-  });
-
-  // Add OpenStreetMap tile layer
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  }).addTo(state.map);
+  if (typeof L === 'undefined') {
+    console.warn('Leaflet not loaded — map disabled.');
+    const mapEl = document.getElementById('map');
+    if (mapEl) mapEl.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:2rem;">Map unavailable. Check internet connection.</p>';
+    return;
+  }
+  try {
+    state.map = L.map('map', {
+      center: [MYANMAR_CENTER.lat, MYANMAR_CENTER.lng],
+      zoom: DEFAULT_ZOOM,
+      zoomControl: true,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(state.map);
+  } catch (e) {
+    console.error('Map init failed:', e);
+  }
 }
 
 /**
@@ -448,6 +454,9 @@ function initMap() {
  * @param {Array} shops - Array of shop objects
  */
 function updateMapMarkers(shops) {
+  // Guard: map or Leaflet not available
+  if (!state.map || typeof L === 'undefined') return;
+
   // Remove existing markers
   state.markers.forEach(m => state.map.removeLayer(m));
   state.markers = [];
