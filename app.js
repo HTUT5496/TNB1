@@ -7,24 +7,24 @@
 'use strict';
 
 /* ─── SUPABASE CLIENT ──────────────────────────────────────────────────── */
-// Wait for supabase SDK to be available
-if (typeof supabase === 'undefined') {
-  throw new Error('Supabase SDK failed to load. Check your internet connection.');
-}
-const { createClient } = supabase;
-const sb = createClient(
-  'https://pmlfgokdjjsxyckojahh.supabase.co',
-  'sb_publishable_15j0DLBv2mjt4JMCKvbcfg_tB341vmV',
-  {
+const SUPABASE_URL = 'https://pmlfgokdjjsxyckojahh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_15j0DLBv2mjt4JMCKvbcfg_tB341vmV';
+
+// Safe Supabase init — never crashes the app
+let sb = null;
+try {
+  const { createClient } = (window.supabase || supabase);
+  sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      // Allow the app to work when hosted on GitHub Pages
       flowType: 'implicit'
     }
-  }
-);
+  });
+} catch(e) {
+  console.error('Supabase init failed:', e);
+}
 
 /* ─── CONSTANTS ────────────────────────────────────────────────────────── */
 const BRANDS = ['Toyota','Nissan','Honda','BMW','Mercedes-Benz','Ford','Hyundai','Kia','Proton','Perodua','Other'];
@@ -186,6 +186,7 @@ function goBack() {
 ════════════════════════════════════════════════════════════════ */
 
 async function doLogin() {
+  if (!sb) { showErr('loginErr', 'Connection error. Please refresh the page.'); return; }
   const email = document.getElementById('loginEmail').value.trim();
   const pass  = document.getElementById('loginPassword').value;
   if (!email || !pass) { showErr('loginErr', 'Please fill in both fields.'); return; }
@@ -201,6 +202,7 @@ async function doLogin() {
 }
 
 async function doSignup() {
+  if (!sb) { showErr('signupErr', 'Connection error. Please refresh the page.'); return; }
   const name  = document.getElementById('signupName').value.trim();
   const email = document.getElementById('signupEmail').value.trim();
   const phone = document.getElementById('signupPhone').value.trim();
@@ -1134,31 +1136,37 @@ document.addEventListener('DOMContentLoaded', () => {
 }); // end DOMContentLoaded
 
 /* ════════════════════════════════════════════════════════════════
-   BOOT — Check Existing Auth Session
-   Splash ALWAYS advances — even if Supabase is slow or fails.
+   BOOT — Splash always advances, no matter what happens.
 ════════════════════════════════════════════════════════════════ */
 (async function boot() {
 
-  // Guarantee splash shows for at least 1.8 seconds
   const minSplash = new Promise(r => setTimeout(r, 1800));
 
-  // Hard safety net: no matter what happens, show login after 4 seconds max
-  const safetyTimer = setTimeout(() => {
-    if (document.getElementById('pg-splash').classList.contains('active')) {
-      console.warn('WRENCH: Safety timeout hit — forcing login page');
-      showPage('login');
-    }
-  }, 4000);
+  // HARD FAILSAFE: force past splash after 5s no matter what
+  setTimeout(() => {
+    try {
+      const splash = document.getElementById('pg-splash');
+      if (splash && splash.classList.contains('active')) {
+        console.warn('Hard failsafe: forcing login page');
+        showPage('login');
+      }
+    } catch(e) {}
+  }, 5000);
+
+  // If Supabase never loaded, just go to login
+  if (!sb) {
+    await minSplash;
+    showPage('login');
+    return;
+  }
 
   try {
-    // Race session check against a 3-second timeout
     const sessionResult = await Promise.race([
       sb.auth.getSession(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timed out')), 3000))
+      new Promise(r => setTimeout(() => r({ data: { session: null } }), 3000))
     ]);
 
-    await minSplash; // ensure splash animation completes
-    clearTimeout(safetyTimer);
+    await minSplash;
 
     const session = sessionResult?.data?.session;
     if (session?.user) {
@@ -1168,17 +1176,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
   } catch (err) {
-    // Supabase unavailable, slow network, or any other error
-    console.warn('WRENCH boot error:', err.message);
+    console.warn('Boot error:', err.message);
     await minSplash;
-    clearTimeout(safetyTimer);
     showPage('login');
   }
 
-  // Listen for auth changes (OAuth redirects, sign out, etc.)
+  // Auth state listener
   try {
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN'  && session?.user && !S.user) await bootApp(session.user);
+      if (event === 'SIGNED_IN' && session?.user && !S.user) {
+        await bootApp(session.user);
+      }
       if (event === 'SIGNED_OUT') {
         S.user = null;
         document.getElementById('app').classList.add('hidden');
