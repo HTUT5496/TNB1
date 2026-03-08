@@ -57,6 +57,18 @@ const translations = {
     selectCarAndProblem: "Please select a car and problem first.",
     selectProblemFirst: "Please select a problem first.",
 
+    // Directions
+    btnDirections: "Get Directions",
+    directionsTo: "Directions to",
+    calculatingRoute: "Calculating route...",
+    routeOnMap: "Follow the route on the map above.",
+    routeError: "Could not calculate route. Try Google Maps.",
+    gettingLocationForRoute: "Getting your location for directions...",
+    minutes: "min",
+    openGoogleMaps: "Google Maps",
+    mapNotReady: "Map is not ready yet.",
+    clearRoute: "Clear Route",
+
     // Location
     btnMyLocation: "Use My Location",
     locating: "Getting your location...",
@@ -126,6 +138,30 @@ const translations = {
     errorLoadShops: "ပြင်ဆိုင်များ ဖတ်ရှုမရပါ။",
     selectCarAndProblem: "ကားနှင့် ပြဿနာကို အရင်ရွေးပါ။",
     selectProblemFirst: "ပြဿနာကို အရင်ရွေးပါ။",
+
+    // Directions
+    btnDirections: "Get Directions",
+    directionsTo: "Directions to",
+    calculatingRoute: "Calculating route...",
+    routeOnMap: "Follow the route on the map above.",
+    routeError: "Could not calculate route. Try Google Maps.",
+    gettingLocationForRoute: "Getting your location for directions...",
+    minutes: "min",
+    openGoogleMaps: "Google Maps",
+    mapNotReady: "Map is not ready yet.",
+    clearRoute: "Clear Route",
+
+    // Directions
+    btnDirections: "လမ်းညွှန် ရယူပါ",
+    directionsTo: "လမ်းညွှန် -",
+    calculatingRoute: "လမ်းကြောင်း တွက်နေသည်...",
+    routeOnMap: "အပေါ်မြေပုံတွင် လမ်းကြောင်းကို လိုက်ပါ။",
+    routeError: "လမ်းကြောင်း မတွက်နိုင်ပါ။ Google Maps သုံးပါ။",
+    gettingLocationForRoute: "လမ်းညွှန်အတွက် တည်နေရာ ရယူနေသည်...",
+    minutes: "မိနစ်",
+    openGoogleMaps: "Google Maps",
+    mapNotReady: "မြေပုံ မသင့်သေးပါ။",
+    clearRoute: "လမ်းကြောင်း ဖယ်ရှားပါ",
 
     // Location
     btnMyLocation: "ကျွန်ုပ်တည်နေရာ သုံးပါ",

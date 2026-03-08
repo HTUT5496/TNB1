@@ -43,6 +43,8 @@ const state = {
   markers: [],         // Map marker references
   userLocation: null,  // { lat, lng } if granted
   userMarker: null,    // Leaflet marker for user position
+  routingControl: null, // Leaflet Routing Machine instance
+  activeShop: null,     // Currently selected shop for directions
 };
 
 // ============================================================
@@ -412,6 +414,9 @@ function renderShopList(shops) {
         </div>
       </div>
       <div class="shop-actions">
+        <button class="btn-directions" onclick="getDirectionsToShop(${shop.latitude}, ${shop.longitude}, '${shop.shop_name.replace(/'/g, "\\'")}')">
+          🧭 <span>${t('btnDirections')}</span>
+        </button>
         <a href="https://www.openstreetmap.org/?mlat=${shop.latitude}&mlon=${shop.longitude}" 
            target="_blank" 
            rel="noopener noreferrer"
@@ -486,10 +491,15 @@ function updateMapMarkers(shops) {
           <strong class="popup-name">${shop.shop_name}</strong>
           <p class="popup-address">📍 ${shop.address}</p>
           <p class="popup-phone">📞 <a href="tel:${shop.phone}">${shop.phone}</a></p>
-          <a href="https://www.openstreetmap.org/?mlat=${shop.latitude}&mlon=${shop.longitude}" 
-             target="_blank" 
-             class="popup-map-btn"
-          >🗺️ ${t('btnOpenMap')}</a>
+          <div class="popup-actions">
+            <button class="popup-dir-btn" onclick="getDirectionsToShop(${shop.latitude}, ${shop.longitude}, '${shop.shop_name.replace(/'/g, "\'")}')">
+              🧭 ${t('btnDirections')}
+            </button>
+            <a href="https://www.openstreetmap.org/?mlat=${shop.latitude}&mlon=${shop.longitude}" 
+               target="_blank" 
+               class="popup-map-btn"
+            >🗺️ ${t('btnOpenMap')}</a>
+          </div>
         </div>
       `);
 
@@ -518,6 +528,186 @@ function focusShopOnMap(lat, lng) {
     return Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001;
   });
   if (marker) marker.openPopup();
+}
+
+
+
+
+// ============================================================
+// DIRECTIONS FUNCTIONS
+// ============================================================
+
+/**
+ * Get driving directions from user's location (or map center)
+ * to a specific repair shop using OSRM via Leaflet Routing Machine.
+ * @param {number} shopLat
+ * @param {number} shopLng
+ * @param {string} shopName
+ */
+function getDirectionsToShop(shopLat, shopLng, shopName) {
+  // Store active shop for Google Maps fallback button
+  state.activeShop = { lat: shopLat, lng: shopLng, name: shopName };
+  if (!state.map) {
+    showNotification(t('mapNotReady'), 'error');
+    return;
+  }
+
+  if (typeof L.Routing === 'undefined') {
+    // Fallback: open Google Maps directions in new tab
+    openGoogleMapsDirections(shopLat, shopLng);
+    return;
+  }
+
+  // Determine start point: user GPS location or ask for it
+  if (state.userLocation) {
+    drawRoute(state.userLocation.lat, state.userLocation.lng, shopLat, shopLng, shopName);
+  } else {
+    // Ask for location first, then draw route
+    showNotification(t('gettingLocationForRoute'), 'info');
+    if (!navigator.geolocation) {
+      openGoogleMapsDirections(shopLat, shopLng);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        state.userLocation = { lat, lng };
+        placeUserMarker(lat, lng);
+        drawRoute(lat, lng, shopLat, shopLng, shopName);
+      },
+      () => {
+        // Permission denied — fall back to Google Maps
+        openGoogleMapsDirections(shopLat, shopLng);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }
+}
+
+/**
+ * Draw the actual route on the map using Leaflet Routing Machine + OSRM
+ */
+function drawRoute(fromLat, fromLng, toLat, toLng, shopName) {
+  // Remove any existing route
+  clearRoute();
+
+  // Close open popups
+  state.map.closePopup();
+
+  // Show the directions panel
+  document.getElementById('directionsPanel').classList.add('visible');
+  document.getElementById('directionsShopName').textContent = shopName;
+  document.getElementById('directionsSteps').innerHTML =
+    `<div class="dir-loading"><div class="spinner"></div> ${t('calculatingRoute')}</div>`;
+
+  // Create routing control (uses OSRM public server — no API key needed)
+  state.routingControl = L.Routing.control({
+    waypoints: [
+      L.latLng(fromLat, fromLng),
+      L.latLng(toLat, toLng),
+    ],
+    router: L.Routing.osrmv1({
+      serviceUrl: 'https://router.project-osrm.org/route/v1',
+      profile: 'driving',
+    }),
+    lineOptions: {
+      styles: [
+        { color: '#f59e0b', weight: 6, opacity: 0.9 },
+        { color: '#fcd34d', weight: 2, opacity: 0.6 },
+      ],
+      extendToWaypoints: true,
+      missingRouteTolerance: 0,
+    },
+    createMarker: () => null,   // Use our own markers, not default ones
+    addWaypoints: false,        // Don't let user drag to add waypoints
+    draggableWaypoints: false,  // Lock waypoints
+    fitSelectedRoutes: true,
+    showAlternatives: false,
+    containerClassName: 'lrm-hidden', // Hide the default LRM panel
+  }).addTo(state.map);
+
+  // Handle route found
+  state.routingControl.on('routesfound', (e) => {
+    const route = e.routes[0];
+    const summary = route.summary;
+    const distKm = (summary.totalDistance / 1000).toFixed(1);
+    const mins = Math.round(summary.totalTime / 60);
+
+    // Update directions panel header
+    document.getElementById('directionsSummary').innerHTML =
+      `<span class="dir-dist">🛣️ ${distKm} km</span>
+       <span class="dir-time">⏱️ ${mins} ${t('minutes')}</span>`;
+
+    // Render step-by-step instructions
+    const steps = route.instructions || [];
+    document.getElementById('directionsSteps').innerHTML = steps.length
+      ? steps.map((step, i) => `
+          <div class="dir-step">
+            <span class="dir-step-num">${i + 1}</span>
+            <span class="dir-step-icon">${getStepIcon(step.type)}</span>
+            <span class="dir-step-text">${step.text}</span>
+            <span class="dir-step-dist">${formatDist(step.distance)}</span>
+          </div>
+        `).join('')
+      : `<p class="dir-no-steps">${t('routeOnMap')}</p>`;
+  });
+
+  // Handle routing error
+  state.routingControl.on('routingerror', () => {
+    document.getElementById('directionsSteps').innerHTML =
+      `<p class="dir-error">${t('routeError')}</p>`;
+    showNotification(t('routeError'), 'error');
+  });
+}
+
+/**
+ * Clear the current route from the map
+ */
+function clearRoute() {
+  if (state.routingControl) {
+    state.map.removeControl(state.routingControl);
+    state.routingControl = null;
+  }
+  document.getElementById('directionsPanel').classList.remove('visible');
+}
+
+/**
+ * Fallback: open Google Maps directions in a new tab
+ */
+function openGoogleMapsDirections(shopLat, shopLng) {
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${shopLat},${shopLng}&travelmode=driving`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * Return an emoji icon for a routing step type
+ */
+function getStepIcon(type) {
+  const icons = {
+    'Straight':       '⬆️',
+    'SlightRight':    '↗️',
+    'Right':          '➡️',
+    'SharpRight':     '↪️',
+    'TurnAround':     '🔄',
+    'SharpLeft':      '↩️',
+    'Left':           '⬅️',
+    'SlightLeft':     '↖️',
+    'WaypointReached':'📍',
+    'Roundabout':     '🔃',
+    'DestinationReached': '🏁',
+    'Head':           '🚦',
+  };
+  return icons[type] || '➡️';
+}
+
+/**
+ * Format distance in meters to readable string
+ */
+function formatDist(meters) {
+  if (!meters) return '';
+  return meters >= 1000
+    ? `${(meters / 1000).toFixed(1)} km`
+    : `${Math.round(meters)} m`;
 }
 
 

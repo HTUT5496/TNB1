@@ -10,6 +10,8 @@
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <!-- Leaflet Routing Machine CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" crossorigin="" />
 
   <!-- App CSS -->
   <link rel="stylesheet" href="style.css" />
@@ -170,6 +172,28 @@
             Click a marker to see shop details
           </p>
         </div>
+
+        <!-- ── DIRECTIONS PANEL (hidden until route drawn) ── -->
+        <div id="directionsPanel" class="directions-panel">
+          <div class="directions-header">
+            <div class="directions-title-row">
+              <span class="directions-icon">🧭</span>
+              <div>
+                <div class="directions-label" data-i18n="directionsTo">Directions to</div>
+                <div id="directionsShopName" class="directions-shop-name"></div>
+              </div>
+            </div>
+            <div id="directionsSummary" class="directions-summary"></div>
+            <div class="directions-header-actions">
+              <button class="btn-gmaps" onclick="openGoogleMapsDirections(state.activeShop?.lat, state.activeShop?.lng)" title="Open in Google Maps">
+                🗺️ <span data-i18n="openGoogleMaps">Google Maps</span>
+              </button>
+              <button class="btn-clear-route" onclick="clearRoute()" aria-label="Close directions">✕</button>
+            </div>
+          </div>
+          <div id="directionsSteps" class="directions-steps"></div>
+        </div>
+
       </section>
 
     </div><!-- /#shopsSection -->
@@ -189,6 +213,8 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Leaflet Routing Machine -->
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js" crossorigin=""></script>
 
   <!-- Translation dictionary -->
   <script src="translations.js"></script>
