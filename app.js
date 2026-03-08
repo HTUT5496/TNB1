@@ -43,8 +43,9 @@ const state = {
   markers: [],         // Map marker references
   userLocation: null,  // { lat, lng } if granted
   userMarker: null,    // Leaflet marker for user position
-  routingControl: null, // Leaflet Routing Machine instance
-  activeShop: null,     // Currently selected shop for directions
+  routePolyline: null,     // Leaflet polyline for route
+  routePolylineGlow: null, // Highlight polyline
+  activeShop: null,        // Currently selected shop for directions
 };
 
 // ============================================================
@@ -535,179 +536,254 @@ function focusShopOnMap(lat, lng) {
 
 // ============================================================
 // DIRECTIONS FUNCTIONS
+// Uses OSRM public API directly via fetch — NO plugin needed.
+// Draws the route as a Leaflet polyline on the map.
+// Falls back to Google Maps if OSRM is unreachable.
 // ============================================================
 
 /**
- * Get driving directions from user's location (or map center)
- * to a specific repair shop using OSRM via Leaflet Routing Machine.
- * @param {number} shopLat
- * @param {number} shopLng
- * @param {string} shopName
+ * Entry point: called when user clicks "Get Directions" on any shop.
+ * Handles location acquisition then calls drawRoute().
  */
 function getDirectionsToShop(shopLat, shopLng, shopName) {
-  // Store active shop for Google Maps fallback button
   state.activeShop = { lat: shopLat, lng: shopLng, name: shopName };
+
   if (!state.map) {
     showNotification(t('mapNotReady'), 'error');
     return;
   }
 
-  if (typeof L.Routing === 'undefined') {
-    // Fallback: open Google Maps directions in new tab
+  if (state.userLocation) {
+    // Already have location — draw immediately
+    drawRoute(state.userLocation.lat, state.userLocation.lng, shopLat, shopLng, shopName);
+  } else if (navigator.geolocation) {
+    // Request location first
+    showNotification(t('gettingLocationForRoute'), 'info');
+
+    // Show panel with loading state right away so user sees feedback
+    showDirectionsPanel(shopName, null, null, true);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        state.userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        placeUserMarker(state.userLocation.lat, state.userLocation.lng);
+        drawRoute(state.userLocation.lat, state.userLocation.lng, shopLat, shopLng, shopName);
+      },
+      (err) => {
+        // Location denied or failed — open Google Maps instead
+        clearDirectionsPanel();
+        showNotification(t('locationDenied'), 'error');
+        openGoogleMapsDirections(shopLat, shopLng);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  } else {
+    // No geolocation support — open Google Maps
     openGoogleMapsDirections(shopLat, shopLng);
+  }
+}
+
+/**
+ * Fetch route from OSRM and draw it on the map as a polyline.
+ * OSRM returns an encoded polyline; we decode and draw it with Leaflet.
+ */
+async function drawRoute(fromLat, fromLng, toLat, toLng, shopName) {
+  // Show panel with loading spinner
+  showDirectionsPanel(shopName, null, null, true);
+
+  // Remove any existing route polyline
+  clearRoutePolyline();
+
+  try {
+    // Call OSRM route API directly — no plugin needed
+    const url = `https://router.project-osrm.org/route/v1/driving/` +
+                `${fromLng},${fromLat};${toLng},${toLat}` +
+                `?overview=full&geometries=geojson&steps=true&annotations=false`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('OSRM response error: ' + res.status);
+
+    const data = await res.json();
+
+    if (!data.routes || data.routes.length === 0) throw new Error('No route found');
+
+    const route   = data.routes[0];
+    const distKm  = (route.distance / 1000).toFixed(1);
+    const mins    = Math.round(route.duration / 60);
+
+    // Draw route line on map using GeoJSON coordinates
+    const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+    state.routePolyline = L.polyline(coords, {
+      color: '#f59e0b',
+      weight: 6,
+      opacity: 0.9,
+      lineJoin: 'round',
+      lineCap: 'round',
+    }).addTo(state.map);
+
+    // Also draw a thinner highlight line on top
+    state.routePolylineGlow = L.polyline(coords, {
+      color: '#fcd34d',
+      weight: 2,
+      opacity: 0.7,
+      lineJoin: 'round',
+    }).addTo(state.map);
+
+    // Fit map to show full route
+    state.map.fitBounds(state.routePolyline.getBounds().pad(0.15));
+
+    // Collect steps from all legs
+    const steps = [];
+    route.legs.forEach(leg => {
+      leg.steps.forEach(step => {
+        if (step.maneuver && step.name !== undefined) {
+          steps.push({
+            type: step.maneuver.type,
+            modifier: step.maneuver.modifier || '',
+            text: formatStepText(step.maneuver.type, step.maneuver.modifier, step.name),
+            distance: step.distance,
+          });
+        }
+      });
+    });
+
+    // Update panel with results
+    showDirectionsPanel(shopName, distKm, mins, false, steps);
+
+  } catch (err) {
+    console.error('Route fetch failed:', err);
+    // Show error in panel with Google Maps fallback button
+    showDirectionsPanel(shopName, null, null, false, null, true);
+  }
+}
+
+/**
+ * Show/update the directions panel UI
+ */
+function showDirectionsPanel(shopName, distKm, mins, loading, steps, hasError) {
+  const panel     = document.getElementById('directionsPanel');
+  const nameEl    = document.getElementById('directionsShopName');
+  const summaryEl = document.getElementById('directionsSummary');
+  const stepsEl   = document.getElementById('directionsSteps');
+
+  panel.classList.add('visible');
+  nameEl.textContent = shopName;
+
+  if (loading) {
+    summaryEl.innerHTML = '';
+    stepsEl.innerHTML = `<div class="dir-loading"><div class="spinner"></div> ${t('calculatingRoute')}</div>`;
     return;
   }
 
-  // Determine start point: user GPS location or ask for it
-  if (state.userLocation) {
-    drawRoute(state.userLocation.lat, state.userLocation.lng, shopLat, shopLng, shopName);
-  } else {
-    // Ask for location first, then draw route
-    showNotification(t('gettingLocationForRoute'), 'info');
-    if (!navigator.geolocation) {
-      openGoogleMapsDirections(shopLat, shopLng);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        state.userLocation = { lat, lng };
-        placeUserMarker(lat, lng);
-        drawRoute(lat, lng, shopLat, shopLng, shopName);
-      },
-      () => {
-        // Permission denied — fall back to Google Maps
-        openGoogleMapsDirections(shopLat, shopLng);
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+  if (hasError) {
+    summaryEl.innerHTML = '';
+    stepsEl.innerHTML = `
+      <div class="dir-error-block">
+        <p class="dir-error">${t('routeError')}</p>
+        <button class="btn-gmaps-fallback" onclick="openGoogleMapsDirections(state.activeShop.lat, state.activeShop.lng)">
+          🗺️ ${t('openGoogleMaps')}
+        </button>
+      </div>`;
+    return;
   }
+
+  // Success
+  summaryEl.innerHTML = `
+    <span class="dir-dist">🛣️ ${distKm} km</span>
+    <span class="dir-time">⏱️ ${mins} ${t('minutes')}</span>`;
+
+  if (steps && steps.length > 0) {
+    stepsEl.innerHTML = steps.map((step, i) => `
+      <div class="dir-step">
+        <span class="dir-step-num">${i + 1}</span>
+        <span class="dir-step-icon">${getStepIcon(step.type, step.modifier)}</span>
+        <span class="dir-step-text">${step.text}</span>
+        <span class="dir-step-dist">${formatDist(step.distance)}</span>
+      </div>`).join('');
+  } else {
+    stepsEl.innerHTML = `<p class="dir-no-steps">${t('routeOnMap')}</p>`;
+  }
+
+  // Scroll panel into view
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /**
- * Draw the actual route on the map using Leaflet Routing Machine + OSRM
+ * Remove route polylines from the map
  */
-function drawRoute(fromLat, fromLng, toLat, toLng, shopName) {
-  // Remove any existing route
-  clearRoute();
-
-  // Close open popups
-  state.map.closePopup();
-
-  // Show the directions panel
-  document.getElementById('directionsPanel').classList.add('visible');
-  document.getElementById('directionsShopName').textContent = shopName;
-  document.getElementById('directionsSteps').innerHTML =
-    `<div class="dir-loading"><div class="spinner"></div> ${t('calculatingRoute')}</div>`;
-
-  // Create routing control (uses OSRM public server — no API key needed)
-  state.routingControl = L.Routing.control({
-    waypoints: [
-      L.latLng(fromLat, fromLng),
-      L.latLng(toLat, toLng),
-    ],
-    router: L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1',
-      profile: 'driving',
-    }),
-    lineOptions: {
-      styles: [
-        { color: '#f59e0b', weight: 6, opacity: 0.9 },
-        { color: '#fcd34d', weight: 2, opacity: 0.6 },
-      ],
-      extendToWaypoints: true,
-      missingRouteTolerance: 0,
-    },
-    createMarker: () => null,   // Use our own markers, not default ones
-    addWaypoints: false,        // Don't let user drag to add waypoints
-    draggableWaypoints: false,  // Lock waypoints
-    fitSelectedRoutes: true,
-    showAlternatives: false,
-    containerClassName: 'lrm-hidden', // Hide the default LRM panel
-  }).addTo(state.map);
-
-  // Handle route found
-  state.routingControl.on('routesfound', (e) => {
-    const route = e.routes[0];
-    const summary = route.summary;
-    const distKm = (summary.totalDistance / 1000).toFixed(1);
-    const mins = Math.round(summary.totalTime / 60);
-
-    // Update directions panel header
-    document.getElementById('directionsSummary').innerHTML =
-      `<span class="dir-dist">🛣️ ${distKm} km</span>
-       <span class="dir-time">⏱️ ${mins} ${t('minutes')}</span>`;
-
-    // Render step-by-step instructions
-    const steps = route.instructions || [];
-    document.getElementById('directionsSteps').innerHTML = steps.length
-      ? steps.map((step, i) => `
-          <div class="dir-step">
-            <span class="dir-step-num">${i + 1}</span>
-            <span class="dir-step-icon">${getStepIcon(step.type)}</span>
-            <span class="dir-step-text">${step.text}</span>
-            <span class="dir-step-dist">${formatDist(step.distance)}</span>
-          </div>
-        `).join('')
-      : `<p class="dir-no-steps">${t('routeOnMap')}</p>`;
-  });
-
-  // Handle routing error
-  state.routingControl.on('routingerror', () => {
-    document.getElementById('directionsSteps').innerHTML =
-      `<p class="dir-error">${t('routeError')}</p>`;
-    showNotification(t('routeError'), 'error');
-  });
+function clearRoutePolyline() {
+  if (state.routePolyline)     { state.map.removeLayer(state.routePolyline);     state.routePolyline = null; }
+  if (state.routePolylineGlow) { state.map.removeLayer(state.routePolylineGlow); state.routePolylineGlow = null; }
 }
 
 /**
- * Clear the current route from the map
+ * Clear route and hide directions panel
  */
 function clearRoute() {
-  if (state.routingControl) {
-    state.map.removeControl(state.routingControl);
-    state.routingControl = null;
-  }
-  document.getElementById('directionsPanel').classList.remove('visible');
+  clearRoutePolyline();
+  clearDirectionsPanel();
+}
+
+function clearDirectionsPanel() {
+  const panel = document.getElementById('directionsPanel');
+  if (panel) panel.classList.remove('visible');
 }
 
 /**
- * Fallback: open Google Maps directions in a new tab
+ * Open Google Maps directions in new tab
  */
 function openGoogleMapsDirections(shopLat, shopLng) {
+  if (!shopLat || !shopLng) return;
   const url = `https://www.google.com/maps/dir/?api=1&destination=${shopLat},${shopLng}&travelmode=driving`;
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 /**
- * Return an emoji icon for a routing step type
+ * Format a human-readable step instruction from OSRM maneuver data
  */
-function getStepIcon(type) {
-  const icons = {
-    'Straight':       '⬆️',
-    'SlightRight':    '↗️',
-    'Right':          '➡️',
-    'SharpRight':     '↪️',
-    'TurnAround':     '🔄',
-    'SharpLeft':      '↩️',
-    'Left':           '⬅️',
-    'SlightLeft':     '↖️',
-    'WaypointReached':'📍',
-    'Roundabout':     '🔃',
-    'DestinationReached': '🏁',
-    'Head':           '🚦',
+function formatStepText(type, modifier, name) {
+  const road = name ? `onto ${name}` : '';
+  const modMap = {
+    'uturn':       'Make a U-turn',
+    'sharp right': 'Turn sharp right',
+    'right':       'Turn right',
+    'slight right':'Keep slight right',
+    'straight':    'Continue straight',
+    'slight left': 'Keep slight left',
+    'left':        'Turn left',
+    'sharp left':  'Turn sharp left',
   };
-  return icons[type] || '➡️';
+  if (type === 'depart')  return `Head ${modifier || 'forward'} ${road}`.trim();
+  if (type === 'arrive')  return 'Arrive at destination';
+  if (type === 'roundabout' || type === 'rotary') return `Enter roundabout ${road}`.trim();
+  const base = modMap[modifier] || (modifier ? modifier.charAt(0).toUpperCase() + modifier.slice(1) : 'Continue');
+  return road ? `${base} ${road}` : base;
 }
 
 /**
- * Format distance in meters to readable string
+ * Return a directional emoji for a maneuver type+modifier
+ */
+function getStepIcon(type, modifier) {
+  if (type === 'depart')           return '🚦';
+  if (type === 'arrive')           return '🏁';
+  if (type === 'roundabout' || type === 'rotary') return '🔃';
+  const mod = modifier || '';
+  if (mod.includes('sharp right'))  return '↪️';
+  if (mod.includes('right'))        return '➡️';
+  if (mod.includes('slight right')) return '↗️';
+  if (mod.includes('sharp left'))   return '↩️';
+  if (mod.includes('left'))         return '⬅️';
+  if (mod.includes('slight left'))  return '↖️';
+  if (mod.includes('uturn'))        return '🔄';
+  return '⬆️';
+}
+
+/**
+ * Format metres to a readable distance string
  */
 function formatDist(meters) {
   if (!meters) return '';
-  return meters >= 1000
-    ? `${(meters / 1000).toFixed(1)} km`
-    : `${Math.round(meters)} m`;
+  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 }
 
 

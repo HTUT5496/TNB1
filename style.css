@@ -1179,3 +1179,29 @@ body {
 .leaflet-routing-container-hide {
   display: none !important;
 }
+
+/* ── DIRECTIONS ERROR BLOCK ───────────────────────────────── */
+.dir-error-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+}
+
+.btn-gmaps-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0.6rem var(--space-xl);
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--transition);
+}
+.btn-gmaps-fallback:hover { background: #1557b0; }
