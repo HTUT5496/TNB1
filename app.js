@@ -7,10 +7,23 @@
 'use strict';
 
 /* ─── SUPABASE CLIENT ──────────────────────────────────────────────────── */
+// Wait for supabase SDK to be available
+if (typeof supabase === 'undefined') {
+  throw new Error('Supabase SDK failed to load. Check your internet connection.');
+}
 const { createClient } = supabase;
 const sb = createClient(
   'https://pmlfgokdjjsxyckojahh.supabase.co',
-  'sb_publishable_15j0DLBv2mjt4JMCKvbcfg_tB341vmV'
+  'sb_publishable_15j0DLBv2mjt4JMCKvbcfg_tB341vmV',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      // Allow the app to work when hosted on GitHub Pages
+      flowType: 'implicit'
+    }
+  }
 );
 
 /* ─── CONSTANTS ────────────────────────────────────────────────────────── */
@@ -1122,20 +1135,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ════════════════════════════════════════════════════════════════
    BOOT — Check Existing Auth Session
+   Splash ALWAYS advances — even if Supabase is slow or fails.
 ════════════════════════════════════════════════════════════════ */
 (async function boot() {
-  const MIN_SPLASH = new Promise(r => setTimeout(r, 1800));
-  const sessionPr  = sb.auth.getSession();
-  const [, { data:{session} }] = await Promise.all([MIN_SPLASH, sessionPr]);
 
-  if (session?.user) {
-    await bootApp(session.user);
-  } else {
+  // Guarantee splash shows for at least 1.8 seconds
+  const minSplash = new Promise(r => setTimeout(r, 1800));
+
+  // Hard safety net: no matter what happens, show login after 4 seconds max
+  const safetyTimer = setTimeout(() => {
+    if (document.getElementById('pg-splash').classList.contains('active')) {
+      console.warn('WRENCH: Safety timeout hit — forcing login page');
+      showPage('login');
+    }
+  }, 4000);
+
+  try {
+    // Race session check against a 3-second timeout
+    const sessionResult = await Promise.race([
+      sb.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Session check timed out')), 3000))
+    ]);
+
+    await minSplash; // ensure splash animation completes
+    clearTimeout(safetyTimer);
+
+    const session = sessionResult?.data?.session;
+    if (session?.user) {
+      await bootApp(session.user);
+    } else {
+      showPage('login');
+    }
+
+  } catch (err) {
+    // Supabase unavailable, slow network, or any other error
+    console.warn('WRENCH boot error:', err.message);
+    await minSplash;
+    clearTimeout(safetyTimer);
     showPage('login');
   }
 
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (event==='SIGNED_IN'  && session?.user && !S.user) await bootApp(session.user);
-    if (event==='SIGNED_OUT') { S.user=null; document.getElementById('app').classList.add('hidden'); showPage('login'); }
-  });
+  // Listen for auth changes (OAuth redirects, sign out, etc.)
+  try {
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN'  && session?.user && !S.user) await bootApp(session.user);
+      if (event === 'SIGNED_OUT') {
+        S.user = null;
+        document.getElementById('app').classList.add('hidden');
+        showPage('login');
+      }
+    });
+  } catch(e) {
+    console.warn('Auth listener error:', e.message);
+  }
+
 })();
