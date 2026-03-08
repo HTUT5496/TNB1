@@ -1,21 +1,27 @@
-/* ══════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    WRENCH — app.js
-   Full application logic with Supabase integration
-══════════════════════════════════════════════════════ */
+   Complete application logic connected to Supabase
+   Version 2.0 — Fully rewritten & improved
+════════════════════════════════════════════════════════════════ */
 
 'use strict';
 
-/* ── SUPABASE INIT ────────────────────────────────────────────────────────── */
+/* ─── SUPABASE CLIENT ──────────────────────────────────────────────────── */
 const { createClient } = supabase;
 const sb = createClient(
   'https://pmlfgokdjjsxyckojahh.supabase.co',
   'sb_publishable_15j0DLBv2mjt4JMCKvbcfg_tB341vmV'
 );
 
-/* ── CONSTANTS ───────────────────────────────────────────────────────────── */
-const BRANDS = ['Toyota','Nissan','Honda','BMW','Mercedes','Ford','Hyundai','Kia','Other'];
-const BRAND_FLAG = { Toyota:'🇯🇵', Nissan:'🇯🇵', Honda:'🇯🇵', BMW:'🇩🇪', Mercedes:'🇩🇪', Ford:'🇺🇸', Hyundai:'🇰🇷', Kia:'🇰🇷', Other:'🚗' };
-const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+/* ─── CONSTANTS ────────────────────────────────────────────────────────── */
+const BRANDS = ['Toyota','Nissan','Honda','BMW','Mercedes-Benz','Ford','Hyundai','Kia','Proton','Perodua','Other'];
+const BRAND_FLAG = {
+  Toyota:'🇯🇵', Nissan:'🇯🇵', Honda:'🇯🇵', BMW:'🇩🇪',
+  'Mercedes-Benz':'🇩🇪', Ford:'🇺🇸', Hyundai:'🇰🇷', Kia:'🇰🇷',
+  Proton:'🇲🇾', Perodua:'🇲🇾', Other:'🚗'
+};
+const DAYS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS= ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const REMINDER_META = {
   oil_change:    { emoji:'🛢️', label:'Oil Change' },
@@ -23,84 +29,70 @@ const REMINDER_META = {
   engine_check:  { emoji:'🔧', label:'Engine Check' },
   brake_check:   { emoji:'🛑', label:'Brake Check' },
   air_filter:    { emoji:'💨', label:'Air Filter' },
+  battery_check: { emoji:'🔋', label:'Battery Check' },
   other:         { emoji:'⚙️', label:'Other' },
 };
 
-const AI_KNOWLEDGE = {
-  engine:  'Based on your description, this sounds like an **engine issue**. Possible causes include worn spark plugs, a faulty ignition coil, clogged fuel injectors, or a failing MAF sensor. I recommend getting an OBD-II diagnostic scan — most workshops do this free or for RM 30–50. Avoid prolonged driving until checked.',
-  brake:   '🛑 **Brake issues are safety-critical** — do not delay! Your symptoms suggest worn brake pads (< 3mm), warped rotors, or a brake fluid leak. Pull over safely if you hear grinding. Get this inspected immediately. Emergency shops near you are available 24/7.',
-  battery: 'Your car battery may be failing. A healthy battery reads 12.6V at rest; below 12.2V means it needs replacement. The alternator (should output 13.7–14.7V while running) may also be at fault. Most workshops offer free battery testing. Battery replacement typically costs RM 150–350.',
-  ac:      'AC not cooling? Top causes: low refrigerant (regas costs RM 80–150), compressor failure, or a clogged condenser. If you hear a clicking noise when you turn on AC, the compressor clutch may be failing. Book an AC specialist near you.',
-  oil:     'An oil leak can come from a valve cover gasket, oil pan gasket, or rear main seal. Check the oil color on the ground: black = engine oil, red/brown = transmission fluid, green/orange = coolant. Top up oil immediately to avoid engine damage and book a service ASAP.',
-  tire:    'Tyre problems could include a puncture, sidewall damage, or uneven wear from wheel misalignment. Check tyre pressure first (typical: 30–35 PSI). If flat, use your spare or request a tow. Wheel alignment service costs RM 60–120.',
-  default: 'Thanks for the description. Without seeing the car directly, this could involve multiple systems. I recommend visiting a certified mechanic for a full diagnostic scan. Based on your location I can help you find the nearest verified workshop that handles this type of issue.',
+const AI_KB = {
+  engine:  '🔧 <strong>Engine Issue Detected</strong><br/><br/>Your symptoms suggest one of these common causes:<br/>• <strong>Spark plugs</strong> — worn plugs cause misfires & rough idling (replace every 40,000–60,000 km)<br/>• <strong>Ignition coil</strong> failure — causes hesitation and CEL light<br/>• <strong>Clogged fuel injectors</strong> — poor acceleration & high fuel consumption<br/>• <strong>MAF sensor</strong> — incorrect air/fuel ratio causing stalling<br/><br/>💰 Estimated cost: RM 80–600 depending on cause<br/>🏥 Recommended: OBD-II diagnostic scan (RM 30–50 at most shops)',
+  brake:   '🛑 <strong>BRAKE ALERT — Safety Critical</strong><br/><br/>Do not ignore brake problems. Your symptoms match:<br/>• <strong>Worn brake pads</strong> — if thickness < 3mm, replace immediately<br/>• <strong>Warped rotors</strong> — pulsating pedal when braking<br/>• <strong>Brake fluid leak</strong> — spongy pedal, visible fluid under car<br/>• <strong>Caliper sticking</strong> — pulling to one side<br/><br/>💰 Pad replacement: RM 80–250 per axle<br/>⚠️ Stop driving if pedal sinks to the floor',
+  battery: '🔋 <strong>Battery / Electrical Issue</strong><br/><br/>Common causes of your symptoms:<br/>• <strong>Dead battery</strong> — lifespan 3–5 years. Test voltage: healthy = 12.6V<br/>• <strong>Failing alternator</strong> — not charging battery while running (should show 13.7–14.7V)<br/>• <strong>Corroded terminals</strong> — clean with baking soda & wire brush<br/>• <strong>Parasitic drain</strong> — something drawing power when engine is off<br/><br/>💰 Battery replacement: RM 150–380<br/>🆓 Most workshops offer free battery testing',
+  ac:      '❄️ <strong>Air Conditioning Problem</strong><br/><br/>Your AC issue is likely caused by:<br/>• <strong>Low refrigerant</strong> — most common cause; needs regas<br/>• <strong>Faulty compressor</strong> — clicking noise when AC turns on<br/>• <strong>Clogged condenser</strong> — reduced cooling performance<br/>• <strong>Cabin air filter</strong> — blocked filter reduces airflow<br/><br/>💰 AC regas: RM 80–150<br/>💰 Compressor replacement: RM 600–1,500<br/>Check: Is hot air coming out even on max cold?',
+  oil:     '🛢️ <strong>Oil Leak Identified</strong><br/><br/>Check the colour to identify the fluid:<br/>• <strong>Black/dark brown</strong> = Engine oil leak<br/>• <strong>Red/pink</strong> = Transmission fluid<br/>• <strong>Green/orange</strong> = Coolant (overheating risk!)<br/>• <strong>Clear/light yellow</strong> = Power steering fluid<br/><br/>Common leak points: valve cover gasket, oil pan, rear main seal<br/>⚠️ Top up oil immediately to prevent engine damage<br/>💰 Gasket replacement: RM 100–400',
+  tire:    '🔴 <strong>Tyre / Wheel Issue</strong><br/><br/>Your symptoms suggest:<br/>• <strong>Flat/puncture</strong> — use spare tyre or call for tow<br/>• <strong>Uneven wear</strong> — caused by misalignment or under-inflation<br/>• <strong>Sidewall damage</strong> — bulge = replace immediately<br/>• <strong>Balancing needed</strong> — vibration at 80–110 km/h<br/><br/>✅ Check tyre pressure: standard is 32–35 PSI<br/>💰 Alignment: RM 60–120 | Balancing: RM 10–20 per tyre',
+  overheat:'🌡️ <strong>Overheating Engine</strong><br/><br/>STOP the engine if temperature gauge is in red zone!<br/><br/>Causes:<br/>• <strong>Low coolant</strong> — check reservoir when engine is cold<br/>• <strong>Faulty thermostat</strong> — stuck closed<br/>• <strong>Radiator blockage</strong> — reduced cooling<br/>• <strong>Water pump failure</strong> — no circulation<br/><br/>⚠️ Driving while overheating causes catastrophic engine damage<br/>🚛 Consider requesting a tow truck',
+  default: '🔍 <strong>General Car Problem</strong><br/><br/>Based on your description, this could involve multiple systems. Here\'s what I recommend:<br/><br/>1. Note all symptoms (sounds, smells, dashboard lights)<br/>2. Check your owner\'s manual for warning light meanings<br/>3. Get an OBD-II diagnostic scan at any workshop (RM 30–50)<br/><br/>📍 I can help you find certified workshops near you that handle this type of issue. Click "Find Shops" or search above.',
 };
 
 const AI_PROBLEMS = [
-  { emoji:'🔧', label:'Engine',   key:'engine'  },
-  { emoji:'🛑', label:'Brakes',   key:'brake'   },
-  { emoji:'🔋', label:'Battery',  key:'battery' },
-  { emoji:'❄️', label:'AC',       key:'ac'      },
-  { emoji:'🛢️', label:'Oil Leak', key:'oil'     },
-  { emoji:'🔴', label:'Tyres',    key:'tire'    },
+  { emoji:'🔧', label:'Engine',     key:'engine'  },
+  { emoji:'🛑', label:'Brakes',     key:'brake'   },
+  { emoji:'🔋', label:'Battery',    key:'battery' },
+  { emoji:'❄️', label:'AC',         key:'ac'      },
+  { emoji:'🛢️', label:'Oil Leak',   key:'oil'     },
+  { emoji:'🔴', label:'Tyres',      key:'tire'    },
+  { emoji:'🌡️', label:'Overheating',key:'overheat'},
 ];
 
-/* ── APP STATE ────────────────────────────────────────────────────────────── */
+/* ─── APP STATE ────────────────────────────────────────────────────────── */
 const S = {
-  user:          null,
-  profile:       null,
-  currentShopId: null,
-  bookingShopId: null,
+  user:            null,
+  profile:         null,
+  currentShopId:   null,
+  bookingShopId:   null,
   bookingShopName: null,
-  selectedDate:  null,
-  selectedSlot:  null,
-  selectedBrand: null,
-  favorites:     new Set(),
-  cancelTargetId: null,
-  reviewTargetId: null,
-  pageHistory:   [],
+  selectedDate:    null,
+  selectedSlot:    null,
+  selectedBrand:   null,
+  favorites:       new Set(),
+  cancelTargetId:  null,
+  reviewTargetId:  null,
+  allAppts:        [],
+  pageStack:       [],
 };
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   UTILITY FUNCTIONS
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   UTILITY HELPERS
+════════════════════════════════════════════════════════════════ */
 
-/** Show a toast notification */
-function toast(msg, type = 'info', ms = 3500) {
+function toast(msg, type = 'info', ms = 3800) {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.textContent = msg;
+  el.innerHTML = msg;
   document.getElementById('toastStack').appendChild(el);
-  setTimeout(() => el.remove(), ms);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, ms);
 }
 
-/** Show/hide loading state on a button */
-function btnLoading(id, on) {
+function btnLoad(id, on) {
   const btn = document.getElementById(id);
   if (!btn) return;
-  if (on) {
-    btn.disabled = true;
-    btn._orig = btn.innerHTML;
-    btn.innerHTML = '<span class="spin"></span>';
-  } else {
-    btn.disabled = false;
-    if (btn._orig) btn.innerHTML = btn._orig;
-  }
+  if (on) { btn.disabled = true; btn._html = btn.innerHTML; btn.innerHTML = '<span class="spin-sm"></span>'; }
+  else     { btn.disabled = false; if (btn._html) btn.innerHTML = btn._html; }
 }
 
-/** Show/hide an error banner */
-function showErr(id, msg) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.remove('hidden');
-}
-function hideErr(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.add('hidden');
-}
+function showErr(id, msg) { const el=document.getElementById(id); if(el){el.textContent=msg;el.classList.remove('hidden');} }
+function hideErr(id)      { const el=document.getElementById(id); if(el) el.classList.add('hidden'); }
 
-/** Open / close modal overlay */
 function openModal(id) {
   document.getElementById('modalOverlay').classList.add('open');
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
@@ -111,72 +103,53 @@ function closeModal() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
 }
 
-/** Format ISO date string to human-readable */
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-function fmtTime(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
-}
-function fmtDist(metres) {
-  if (!metres) return '';
-  return metres < 1000 ? `${Math.round(metres)}m` : `${(metres / 1000).toFixed(1)} km`;
-}
+function fmtDate(iso)  { if(!iso) return '—'; const d=new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
+function fmtTime(iso)  { if(!iso) return '—'; const d=new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function fmtDist(m)    { if(!m)  return ''; return m < 1000 ? `${Math.round(m)} m` : `${(m/1000).toFixed(1)} km`; }
+function fmtRating(r)  { return `★ ${(+r||0).toFixed(1)}`; }
+function esc(s)        { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-/** Build star HTML */
-function stars(rating, max = 5) {
-  let h = '';
-  for (let i = 1; i <= max; i++)
-    h += `<span class="rv-star${i > rating ? ' empty' : ''}">★</span>`;
+function starsHtml(n) {
+  let h='';
+  for(let i=1;i<=5;i++) h+=`<span class="rv-star${i>n?' empty':''}">★</span>`;
   return `<div class="rv-stars">${h}</div>`;
 }
-
-/** Status badge HTML */
-function statusBadge(status) {
-  return `<span class="status-badge status-${status}">${status.replace(/_/g,' ')}</span>`;
+function statusBadge(s) {
+  const cls = { pending:'s-pending', confirmed:'s-confirmed', in_progress:'s-in_progress', completed:'s-completed', cancelled:'s-cancelled', no_show:'s-no_show' };
+  return `<span class="status-badge ${cls[s]||'s-pending'}">${s.replace(/_/g,' ')}</span>`;
+}
+function emptyHtml(icon, title, sub) {
+  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><div class="empty-sub">${sub}</div></div>`;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   PAGE ROUTING
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   PAGE ROUTER
+════════════════════════════════════════════════════════════════ */
 
-/** Switch between pre-auth pages (splash / login / signup) */
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const p = document.getElementById(`pg-${name}`);
   if (p) p.classList.add('active');
 }
 
-/** Switch between app inner pages */
 function goTo(name) {
-  document.querySelectorAll('.ap').forEach(p => {
-    p.classList.remove('active');
-    p.classList.add('hidden');
-  });
+  // Hide all app pages
+  document.querySelectorAll('.ap').forEach(ap => { ap.classList.remove('active'); ap.classList.add('hidden'); });
   const el = document.getElementById(`ap-${name}`);
   if (!el) return;
   el.classList.remove('hidden');
   el.classList.add('active');
+  window.scrollTo(0, 0);
 
-  // History stack (skip duplicate)
-  if (S.pageHistory[S.pageHistory.length - 1] !== name) {
-    S.pageHistory.push(name);
-  }
+  // Push to stack (avoid duplicates at top)
+  if (S.pageStack[S.pageStack.length-1] !== name) S.pageStack.push(name);
 
-  // Update top nav active state
-  document.querySelectorAll('.nav-link').forEach(a => a.classList.remove('active'));
-  const navLink = document.querySelector(`.nav-link[data-nav="${name}"]`);
-  if (navLink) navLink.classList.add('active');
+  // Sync nav highlights
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.nav===name));
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav===name));
 
-  // Update bottom nav
-  document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
-  const bItem = document.querySelector(`.bnav-item[data-nav="${name}"]`);
-  if (bItem) bItem.classList.add('active');
-
-  // Lazy-load data for pages
-  const loaders = {
+  // Lazy-load page data
+  ({
     home:         loadHomeShops,
     shops:        () => loadShopsPage(S.selectedBrand),
     brands:       renderBrandGrid,
@@ -184,94 +157,87 @@ function goTo(name) {
     appointments: loadAppointments,
     reminders:    loadReminders,
     dashboard:    loadDashboard,
-  };
-  if (loaders[name]) loaders[name]();
+    ai:           initAI,
+    profile:      loadProfileStats,
+  }[name] || (() => {}))();
 }
 
 function goBack() {
-  S.pageHistory.pop();
-  const prev = S.pageHistory[S.pageHistory.length - 1] || 'home';
-  S.pageHistory.pop(); // goTo will re-push it
+  S.pageStack.pop();
+  const prev = S.pageStack.pop() || 'home';
   goTo(prev);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    AUTHENTICATION
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
-async function handleLogin() {
+async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const pass  = document.getElementById('loginPassword').value;
-  if (!email || !pass) { showErr('loginErr', 'Please fill in all fields.'); return; }
+  if (!email || !pass) { showErr('loginErr', 'Please fill in both fields.'); return; }
   hideErr('loginErr');
-  btnLoading('loginBtn', true);
+  btnLoad('loginBtn', true);
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
-    await bootstrapUser(data.user);
-  } catch (e) {
-    showErr('loginErr', e.message || 'Sign in failed. Check your credentials.');
-  } finally {
-    btnLoading('loginBtn', false);
-  }
+    await bootApp(data.user);
+  } catch(e) {
+    showErr('loginErr', e.message || 'Sign in failed. Check your email and password.');
+  } finally { btnLoad('loginBtn', false); }
 }
 
-async function handleSignup() {
+async function doSignup() {
   const name  = document.getElementById('signupName').value.trim();
   const email = document.getElementById('signupEmail').value.trim();
   const phone = document.getElementById('signupPhone').value.trim();
   const pass  = document.getElementById('signupPassword').value;
-  if (!name || !email || !pass) { showErr('signupErr', 'Please fill in all required fields.'); return; }
-  if (pass.length < 8) { showErr('signupErr', 'Password must be at least 8 characters.'); return; }
+  if (!name||!email||!pass) { showErr('signupErr','Please fill in all required fields.'); return; }
+  if (pass.length < 8)       { showErr('signupErr','Password must be at least 8 characters.'); return; }
   hideErr('signupErr');
-  btnLoading('signupBtn', true);
+  btnLoad('signupBtn', true);
   try {
-    const { error } = await sb.auth.signUp({
-      email, password: pass,
-      options: { data: { full_name: name, phone } }
-    });
+    const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name, phone } } });
     if (error) throw error;
-    toast('Account created! Check your email to verify.', 'success', 5000);
+    toast('✅ Account created! Check your email to verify your address.','success',6000);
     showPage('login');
-  } catch (e) {
+  } catch(e) {
     showErr('signupErr', e.message || 'Sign up failed. Please try again.');
-  } finally {
-    btnLoading('signupBtn', false);
-  }
+  } finally { btnLoad('signupBtn', false); }
 }
 
-async function handleLogout() {
+async function doLogout() {
   await sb.auth.signOut();
-  S.user = null; S.profile = null; S.favorites.clear();
+  S.user = null; S.profile = null; S.favorites.clear(); S.pageStack = [];
   document.getElementById('app').classList.add('hidden');
   showPage('login');
-  toast('Signed out.');
+  toast('You have been signed out.');
 }
 
-/** Runs after successful auth to boot the app */
-async function bootstrapUser(user) {
+/** Bootstraps the full app after auth */
+async function bootApp(user) {
   S.user = user;
 
-  // Load profile row
-  const { data } = await sb.from('users').select('*').eq('id', user.id).maybeSingle();
-  S.profile = data;
+  // Load user profile from DB
+  const { data: prof } = await sb.from('users').select('*').eq('id', user.id).maybeSingle();
+  S.profile = prof;
 
-  const displayName = data?.full_name || user.email.split('@')[0];
+  const displayName = prof?.full_name || user.email.split('@')[0];
   const initial     = displayName.charAt(0).toUpperCase();
 
-  // Update UI with user info
-  document.getElementById('navAvatar').textContent        = initial;
-  document.getElementById('navName').textContent          = displayName.split(' ')[0];
-  document.getElementById('profileAvatarLg').textContent  = initial;
-  document.getElementById('profileName').textContent      = displayName;
-  document.getElementById('profileEmail').textContent     = user.email;
+  // Update nav & profile fields
+  document.getElementById('navAvatar').textContent      = initial;
+  document.getElementById('navName').textContent        = displayName.split(' ')[0];
+  document.getElementById('profileAvatar').textContent  = initial;
+  document.getElementById('profileName').textContent    = displayName;
+  document.getElementById('profileEmail').textContent   = user.email;
 
-  // Load favorites set
+  // Load favorites
   const { data: favs } = await sb.from('favorites').select('shop_id').eq('user_id', user.id);
-  S.favorites = new Set((favs || []).map(f => f.shop_id));
+  S.favorites = new Set((favs||[]).map(f => f.shop_id));
 
-  // Populate brand dropdowns (booking, tow)
-  populateBrandDropdowns();
+  // Populate brand dropdowns
+  fillBrandDropdowns();
 
   // Show app
   document.getElementById('app').classList.remove('hidden');
@@ -279,280 +245,247 @@ async function bootstrapUser(user) {
   goTo('home');
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SHOPS — HOME PREVIEW
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   HOME — NEARBY SHOPS
+════════════════════════════════════════════════════════════════ */
 
 async function loadHomeShops() {
-  const grid = document.getElementById('homeShops');
-  grid.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>';
-
+  const el = document.getElementById('homeShops');
+  el.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   try {
-    const { data, error } = await sb.rpc('find_nearby_shops', {
-      p_lat: 3.1390, p_lng: 101.6869, p_radius_m: 20000
-    });
+    const { data, error } = await sb.rpc('find_nearby_shops', { p_lat:3.1390, p_lng:101.6869, p_radius_m:20000 });
     if (error) throw error;
-    grid.innerHTML = '';
-    (data || []).slice(0, 6).forEach(shop => grid.appendChild(buildShopCard(shop)));
-    if (!data?.length) grid.innerHTML = emptyState('🔧', 'No shops found nearby', 'Try expanding your search radius.');
-  } catch (e) {
-    grid.innerHTML = `<p style="color:var(--red);padding:16px">${e.message}</p>`;
+    el.innerHTML = '';
+    (data||[]).slice(0,6).forEach(shop => el.appendChild(buildShopCard(shop)));
+    if (!data?.length) el.innerHTML = emptyHtml('🔧','No shops found nearby','Try expanding your search area.');
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--red);padding:16px;grid-column:1/-1">${e.message}</p>`;
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   SHOPS — LIST PAGE
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   SHOPS LIST PAGE
+════════════════════════════════════════════════════════════════ */
 
-async function loadShopsPage(brand = null) {
-  const grid  = document.getElementById('shopsList');
-  const title = document.getElementById('shopsPageTitle');
+async function loadShopsPage(brand=null) {
+  const grid  = document.getElementById('shopsGrid');
+  const title = document.getElementById('shopsTitle');
   const count = document.getElementById('shopsCount');
-  grid.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div>';
+  grid.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
 
   try {
-    let q = sb.from('repair_shops').select(`
-      *,
-      supported_brands(car_brands(name)),
-      shop_photos(url,is_primary)
-    `).eq('status', 'active').order('avg_rating', { ascending: false });
+    let q = sb.from('repair_shops')
+      .select('*, supported_brands(car_brands(name)), shop_photos(url,is_primary)')
+      .eq('status','active')
+      .order('avg_rating', {ascending:false});
 
     if (brand) {
-      // Filter through junction table
-      const { data: cbData } = await sb.from('car_brands').select('id').eq('name', brand).maybeSingle();
-      if (cbData) {
-        const { data: sbData } = await sb.from('supported_brands').select('shop_id').eq('brand_id', cbData.id);
-        const ids = (sbData || []).map(s => s.shop_id);
+      const { data:cb } = await sb.from('car_brands').select('id').eq('name',brand).maybeSingle();
+      if (cb) {
+        const { data:sb2 } = await sb.from('supported_brands').select('shop_id').eq('brand_id',cb.id);
+        const ids = (sb2||[]).map(r=>r.shop_id);
         if (ids.length) q = q.in('id', ids);
-        else { grid.innerHTML = emptyState('🔧','No shops found','No shops support this brand yet.'); return; }
+        else { grid.innerHTML = emptyHtml('🔧','No shops for this brand','No registered shops support this brand yet.'); return; }
       }
     }
 
-    const search = document.getElementById('shopsSearchInput')?.value.trim();
-    if (search) q = q.ilike('name', `%${search}%`);
+    const search = document.getElementById('shopsInput')?.value.trim();
+    if (search) q = q.ilike('name',`%${search}%`);
 
     const { data, error } = await q.limit(60);
     if (error) throw error;
 
-    title.textContent = brand ? `${brand} SHOPS` : 'ALL SHOPS';
-    count.textContent = `${data?.length || 0} found`;
+    title.textContent = brand ? `${brand.toUpperCase()} SHOPS` : 'ALL SHOPS';
+    count.textContent = `${data?.length||0} shops`;
     grid.innerHTML = '';
-    if (!data?.length) { grid.innerHTML = emptyState('🔧', 'No shops found', 'Try a different filter or search.'); return; }
+    if (!data?.length) { grid.innerHTML = emptyHtml('🔧','No shops found','Try a different filter or search term.'); return; }
     data.forEach(shop => grid.appendChild(buildShopCard(shop)));
-  } catch (e) {
-    grid.innerHTML = `<p style="color:var(--red);padding:16px">${e.message}</p>`;
+  } catch(e) {
+    grid.innerHTML = `<p style="color:var(--red);padding:16px;grid-column:1/-1">${e.message}</p>`;
   }
 }
 
-/** Build a shop card DOM element */
+/** Build a shop card element */
 function buildShopCard(shop) {
-  const photo  = shop.shop_photos?.find(p => p.is_primary)?.url || shop.shop_photos?.[0]?.url;
-  const brands = (shop.supported_brands || []).map(b => b.car_brands?.name).filter(Boolean);
+  const photo  = shop.shop_photos?.find(p=>p.is_primary)?.url || shop.shop_photos?.[0]?.url;
+  const brands = (shop.supported_brands||[]).map(b=>b.car_brands?.name).filter(Boolean);
   const isFav  = S.favorites.has(shop.id);
   const dist   = fmtDist(shop.distance_meters);
 
   const card = document.createElement('div');
   card.className = 'shop-card';
+  card.setAttribute('role','listitem');
   card.innerHTML = `
-    <div class="shop-card-img">
-      ${photo ? `<img src="${photo}" alt="${escHtml(shop.name)}" loading="lazy" />` : `<div class="img-ph">🔧</div>`}
-      ${shop.is_emergency_available ? `<div class="card-emergency">🚨 EMERGENCY</div>` : ''}
-      <button class="card-fav-btn ${isFav ? 'active' : ''}" data-id="${shop.id}">${isFav ? '❤️' : '🤍'}</button>
+    <div class="sc-img">
+      ${photo ? `<img src="${esc(photo)}" alt="${esc(shop.name)}" loading="lazy"/>` : `<div class="sc-img-ph">🔧</div>`}
+      ${shop.is_emergency_available ? `<div class="sc-emergency">🚨 Emergency</div>` : ''}
+      <button class="sc-fav ${isFav?'active':''}" data-id="${shop.id}" aria-label="Save shop">${isFav?'❤️':'🤍'}</button>
     </div>
-    <div class="shop-card-body">
-      <div class="shop-card-name">${escHtml(shop.name)}</div>
-      <div class="shop-card-addr">${escHtml(shop.address || shop.city || '—')}</div>
-      <div class="shop-card-meta">
-        <div class="shop-rating">★ ${(+shop.avg_rating || 0).toFixed(1)}</div>
-        ${dist ? `<div class="shop-dist">📍 ${dist}</div>` : ''}
-        <div class="shop-reviews">${shop.total_reviews || 0} reviews</div>
+    <div class="sc-body">
+      <div class="sc-name">${esc(shop.name)}</div>
+      <div class="sc-addr">${esc(shop.address||shop.city||'—')}</div>
+      <div class="sc-meta">
+        <div class="sc-rating">${fmtRating(shop.avg_rating)}</div>
+        ${dist ? `<div class="sc-dist">📍 ${dist}</div>` : ''}
+        <div class="sc-reviews">${shop.total_reviews||0} reviews</div>
       </div>
-      ${brands.length ? `<div class="shop-brands">${brands.slice(0,3).map(b => `<span class="brand-tag">${b}</span>`).join('')}${brands.length > 3 ? `<span class="brand-tag">+${brands.length-3}</span>` : ''}</div>` : ''}
+      ${brands.length ? `<div class="sc-brands">${brands.slice(0,3).map(b=>`<span class="brand-tag">${esc(b)}</span>`).join('')}${brands.length>3?`<span class="brand-tag">+${brands.length-3}</span>`:''}</div>` : ''}
     </div>`;
 
-  // Click body → open detail
-  card.querySelector('.shop-card-body').addEventListener('click', () => openShopDetail(shop.id));
-  card.querySelector('.shop-card-img .img-ph, .shop-card-img img')?.parentElement?.addEventListener('click', e => {
-    if (!e.target.closest('.card-fav-btn')) openShopDetail(shop.id);
-  });
-
-  // Fav button
-  card.querySelector('.card-fav-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    toggleFav(shop.id, e.currentTarget);
-  });
-
+  card.querySelector('.sc-body').addEventListener('click', () => openShopDetail(shop.id));
+  card.querySelector('.sc-img').addEventListener('click', e => { if(!e.target.closest('.sc-fav')) openShopDetail(shop.id); });
+  card.querySelector('.sc-fav').addEventListener('click', e => { e.stopPropagation(); toggleFav(shop.id, e.currentTarget); });
   return card;
 }
 
-function escHtml(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-/** Empty state HTML helper */
-function emptyState(icon, title, sub) {
-  return `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><div class="empty-sub">${sub}</div></div>`;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    SHOP DETAIL
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 async function openShopDetail(shopId) {
   S.currentShopId = shopId;
   goTo('shop-detail');
 
-  const body = document.getElementById('detailBody');
-  body.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  // Reset hero & fav button
+  const heroEl = document.getElementById('detailHero');
+  heroEl.innerHTML = `<div class="detail-hero-ph">🔧</div><button class="float-btn fb-back" id="detailBackBtn">←</button><button class="float-btn fb-fav" id="detailFavBtn">${S.favorites.has(shopId)?'❤️':'🤍'}</button>`;
+  document.getElementById('detailBackBtn').addEventListener('click', goBack);
+  document.getElementById('detailFavBtn').addEventListener('click', toggleFavDetail);
 
-  // Reset fav button
-  const favBtn = document.getElementById('detailFavBtn');
-  favBtn.textContent = S.favorites.has(shopId) ? '❤️' : '🤍';
+  const body = document.getElementById('detailBody');
+  body.innerHTML = '<div class="spin-box"><div class="spinner"></div></div>';
 
   try {
     const [shopRes, reviewRes] = await Promise.all([
-      sb.from('repair_shops').select(`
-        *, services(*), shop_photos(*),
-        supported_brands(car_brands(name)),
-        opening_hours(*)
-      `).eq('id', shopId).single(),
-      sb.from('reviews').select('*, users(full_name)')
-        .eq('shop_id', shopId).eq('is_visible', true)
-        .order('created_at', { ascending: false }).limit(6)
+      sb.from('repair_shops').select('*, services(*), shop_photos(*), supported_brands(car_brands(name)), opening_hours(*)').eq('id',shopId).single(),
+      sb.from('reviews').select('*, users(full_name)').eq('shop_id',shopId).eq('is_visible',true).order('created_at',{ascending:false}).limit(6)
     ]);
-
     if (shopRes.error) throw shopRes.error;
+
     const shop    = shopRes.data;
     const reviews = reviewRes.data || [];
 
-    // Update hero image
-    const heroEl = document.getElementById('detailHero');
-    const photo  = shop.shop_photos?.find(p => p.is_primary) || shop.shop_photos?.[0];
-    if (photo) {
-      heroEl.innerHTML = `
-        <img src="${photo.url}" alt="${escHtml(shop.name)}" style="width:100%;height:100%;object-fit:cover"/>
-        <button class="float-back" id="detailBack">←</button>
-        <button class="float-fav" id="detailFavBtn">${S.favorites.has(shopId) ? '❤️' : '🤍'}</button>`;
-      document.getElementById('detailBack').addEventListener('click', goBack);
-      document.getElementById('detailFavBtn').addEventListener('click', () => toggleFavDetail());
+    // Update hero photo
+    const primaryPic = shop.shop_photos?.find(p=>p.is_primary) || shop.shop_photos?.[0];
+    if (primaryPic) {
+      heroEl.innerHTML = `<img src="${esc(primaryPic.url)}" alt="${esc(shop.name)}" style="width:100%;height:100%;object-fit:cover"/><button class="float-btn fb-back" id="detailBackBtn">←</button><button class="float-btn fb-fav" id="detailFavBtn">${S.favorites.has(shopId)?'❤️':'🤍'}</button>`;
+      document.getElementById('detailBackBtn').addEventListener('click', goBack);
+      document.getElementById('detailFavBtn').addEventListener('click', toggleFavDetail);
     }
 
-    const brands = (shop.supported_brands || []).map(b => b.car_brands?.name).filter(Boolean);
+    const brands = (shop.supported_brands||[]).map(b=>b.car_brands?.name).filter(Boolean);
 
     body.innerHTML = `
-      <div style="max-width:860px;margin:0 auto">
-        <div class="detail-shop-head">
+      <div style="max-width:860px;margin:0 auto;padding-bottom:40px">
+        <div class="detail-shop-header">
           <div>
-            <div class="detail-shop-name">${escHtml(shop.name)}</div>
-            <div class="detail-shop-addr">${escHtml(shop.address)}</div>
-            ${shop.is_emergency_available ? `<span class="status-badge" style="background:var(--red-dim);color:var(--red);margin-top:8px;display:inline-flex">🚨 Emergency 24/7</span>` : ''}
+            <div class="detail-shop-name">${esc(shop.name)}</div>
+            <div class="detail-shop-addr">📍 ${esc(shop.address)}</div>
+            ${shop.is_emergency_available ? `<span class="status-badge s-confirmed" style="margin-top:8px;display:inline-flex">🚨 Emergency 24/7</span>` : ''}
           </div>
           <div class="detail-rating-box">
-            <div class="detail-rating-num">★ ${(+shop.avg_rating||0).toFixed(1)}</div>
-            <div class="detail-review-count">${shop.total_reviews||0} reviews</div>
+            <div class="detail-rating-num">${fmtRating(shop.avg_rating)}</div>
+            <div class="detail-rev-count">${shop.total_reviews||0} reviews</div>
           </div>
         </div>
 
-        <div class="detail-action-row">
-          <div class="detail-action" id="callBtn">
-            <div class="da-icon">📞</div><div class="da-label">Call Shop</div>
-          </div>
-          <div class="detail-action" id="directionsBtn">
-            <div class="da-icon">🗺️</div><div class="da-label">Directions</div>
-          </div>
-          <div class="detail-action" id="bookFromDetailBtn">
-            <div class="da-icon">📅</div><div class="da-label">Book Now</div>
-          </div>
+        <div class="detail-actions-row">
+          <div class="detail-action" id="daCall"><div class="da-ico">📞</div><div class="da-lbl">Call Shop</div></div>
+          <div class="detail-action" id="daMap"><div class="da-ico">🗺️</div><div class="da-lbl">Directions</div></div>
+          <div class="detail-action" id="daBook"><div class="da-ico">📅</div><div class="da-lbl">Book Now</div></div>
         </div>
 
         ${brands.length ? `
         <div class="detail-section">
           <div class="detail-sec-title">SUPPORTED BRANDS</div>
-          <div style="display:flex;gap:7px;flex-wrap:wrap">
-            ${brands.map(b => `<span class="brand-tag">${BRAND_FLAG[b]||'🚗'} ${b}</span>`).join('')}
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${brands.map(b=>`<span class="brand-tag">${BRAND_FLAG[b]||'🚗'} ${esc(b)}</span>`).join('')}
           </div>
         </div>` : ''}
 
         ${shop.services?.length ? `
         <div class="detail-section">
-          <div class="detail-sec-title">SERVICES</div>
-          ${shop.services.map(s => `
-            <div class="service-row">
+          <div class="detail-sec-title">SERVICES OFFERED</div>
+          ${shop.services.map(s=>`
+            <div class="svc-row">
               <div>
-                <div class="srv-name">${escHtml(s.name)}</div>
-                <div class="srv-meta">${s.category || ''}${s.duration_minutes ? ' · ' + s.duration_minutes + ' min' : ''}</div>
+                <div class="svc-name">${esc(s.name)}</div>
+                <div class="svc-meta">${esc(s.category||'')}${s.duration_minutes?' · '+s.duration_minutes+' min':''}</div>
               </div>
-              <div class="srv-price">${s.price_min ? 'RM ' + Math.round(+s.price_min) + (s.price_max ? '–' + Math.round(+s.price_max) : '+') : '—'}</div>
+              <div class="svc-price">${s.price_min?'RM '+Math.round(+s.price_min)+(s.price_max?'–'+Math.round(+s.price_max):'+'): '—'}</div>
             </div>`).join('')}
         </div>` : ''}
 
         <div class="detail-section">
           <div class="detail-sec-title">
-            REVIEWS
+            CUSTOMER REVIEWS
             <button class="btn btn-outline btn-sm" id="writeReviewBtn">Write Review</button>
           </div>
-          ${reviews.length ? reviews.map(r => `
+          ${reviews.length ? reviews.map(r=>`
             <div class="review-card">
               <div class="rv-head">
                 <div class="rv-avatar">${(r.users?.full_name||'?').charAt(0).toUpperCase()}</div>
                 <div>
-                  <div class="rv-name">${escHtml(r.users?.full_name || 'Anonymous')}</div>
-                  <div style="display:flex;gap:8px;align-items:center">
-                    ${stars(r.rating)}
+                  <div class="rv-name">${esc(r.users?.full_name||'Anonymous')}</div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    ${starsHtml(r.rating)}
                     <span class="rv-date">${fmtDate(r.created_at)}</span>
                   </div>
                 </div>
               </div>
-              ${r.comment ? `<div class="rv-text">${escHtml(r.comment)}</div>` : ''}
-              ${r.owner_reply ? `<div class="rv-reply"><div class="rv-reply-lbl">Owner Response</div><div class="rv-reply-text">${escHtml(r.owner_reply)}</div></div>` : ''}
+              ${r.comment ? `<div class="rv-text">${esc(r.comment)}</div>` : ''}
+              ${r.owner_reply ? `<div class="rv-reply"><div class="rv-reply-lbl">Owner Response</div><div class="rv-reply-txt">${esc(r.owner_reply)}</div></div>` : ''}
             </div>`).join('')
-          : `<p style="color:var(--muted);font-size:.9rem">No reviews yet. Be the first!</p>`}
+          : `<p style="color:var(--muted);font-size:.9rem;padding:12px 0">No reviews yet. Be the first to review this shop!</p>`}
         </div>
 
-        <div class="detail-book-bar">
-          <button class="btn btn-primary btn-block btn-lg" id="detailBookBtn">📅 BOOK APPOINTMENT</button>
+        <div class="detail-book-sticky">
+          <button class="btn btn-primary btn-block btn-xl" id="detailBookBtn">📅 BOOK APPOINTMENT</button>
         </div>
       </div>`;
 
-    // Wire up action buttons
-    document.getElementById('callBtn').addEventListener('click', () => {
+    document.getElementById('daCall').addEventListener('click', () => {
       if (shop.phone) window.location.href = `tel:${shop.phone}`;
-      else toast('Phone number not available', 'warning');
+      else toast('Phone number not available for this shop.', 'warning');
     });
-    document.getElementById('directionsBtn').addEventListener('click', () => {
+    document.getElementById('daMap').addEventListener('click', () => {
       window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop.address)}`, '_blank');
     });
-    document.getElementById('bookFromDetailBtn').addEventListener('click', () => startBooking(shop.id, shop.name));
-    document.getElementById('detailBookBtn').addEventListener('click',     () => startBooking(shop.id, shop.name));
-    document.getElementById('writeReviewBtn').addEventListener('click',    () => openReviewModal(shopId));
+    document.getElementById('daBook').addEventListener('click',      () => startBooking(shop.id, shop.name));
+    document.getElementById('detailBookBtn').addEventListener('click',() => startBooking(shop.id, shop.name));
+    document.getElementById('writeReviewBtn').addEventListener('click',() => {
+      S.reviewTargetId = shopId;
+      document.getElementById('reviewRating').value = '0';
+      document.getElementById('reviewComment').value = '';
+      document.querySelectorAll('#starPicker span').forEach(s=>s.classList.remove('lit'));
+      openModal('modalReview');
+    });
 
-  } catch (e) {
+  } catch(e) {
     body.innerHTML = `<p style="color:var(--red);padding:24px">${e.message}</p>`;
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    FAVORITES
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 async function toggleFav(shopId, btn) {
-  if (!S.user) { toast('Sign in to save shops', 'warning'); return; }
-  const isFav = S.favorites.has(shopId);
+  if (!S.user) { toast('Please sign in to save shops.','warning'); return; }
+  const wasFav = S.favorites.has(shopId);
   try {
-    if (isFav) {
-      await sb.from('favorites').delete().eq('user_id', S.user.id).eq('shop_id', shopId);
+    if (wasFav) {
+      await sb.from('favorites').delete().eq('user_id',S.user.id).eq('shop_id',shopId);
       S.favorites.delete(shopId);
-      btn.textContent = '🤍';
-      btn.classList.remove('active');
+      btn.textContent = '🤍'; btn.classList.remove('active');
       toast('Removed from saved shops.');
     } else {
-      await sb.from('favorites').upsert({ user_id: S.user.id, shop_id: shopId }, { onConflict: 'user_id,shop_id' });
+      await sb.from('favorites').upsert({user_id:S.user.id, shop_id:shopId},{onConflict:'user_id,shop_id'});
       S.favorites.add(shopId);
-      btn.textContent = '❤️';
-      btn.classList.add('active');
-      toast('Shop saved! ❤️', 'success');
+      btn.textContent = '❤️'; btn.classList.add('active');
+      toast('Shop saved! ❤️','success');
     }
-  } catch (e) { toast(e.message, 'error'); }
+  } catch(e) { toast(e.message,'error'); }
 }
 
 function toggleFavDetail() {
@@ -561,42 +494,33 @@ function toggleFavDetail() {
 }
 
 async function loadFavorites() {
-  const el = document.getElementById('favList');
-  el.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  const el = document.getElementById('favGrid');
+  el.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   try {
     const { data, error } = await sb.from('favorites')
       .select('shop_id, repair_shops(*, shop_photos(url,is_primary))')
-      .eq('user_id', S.user.id)
-      .order('created_at', { ascending: false });
+      .eq('user_id', S.user.id).order('created_at',{ascending:false});
     if (error) throw error;
-
     el.innerHTML = '';
-    if (!data?.length) {
-      el.innerHTML = emptyState('❤️', 'No saved shops', 'Tap the heart icon on any shop to save it here.');
-      return;
-    }
-    const grid = document.createElement('div');
-    grid.className = 'shop-grid';
-    data.forEach(f => { if (f.repair_shops) grid.appendChild(buildShopCard(f.repair_shops)); });
-    el.appendChild(grid);
-  } catch (e) {
-    el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`;
-  }
+    document.getElementById('favsCount').textContent = `${data?.length||0} shops`;
+    if (!data?.length) { el.innerHTML = emptyHtml('❤️','No saved shops','Tap the heart icon on any shop to save it here.'); return; }
+    data.forEach(f => { if (f.repair_shops) el.appendChild(buildShopCard(f.repair_shops)); });
+  } catch(e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BRAND GRID
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   BRAND GRID + FILTER CHIPS
+════════════════════════════════════════════════════════════════ */
 
 function renderBrandGrid() {
   const grid = document.getElementById('brandGrid');
-  if (grid.children.length) return; // already rendered
+  if (grid.children.length) return;
   BRANDS.forEach(brand => {
     const card = document.createElement('div');
-    card.className = 'brand-card' + (S.selectedBrand === brand ? ' selected' : '');
+    card.className = 'brand-card' + (S.selectedBrand===brand?' selected':'');
     card.innerHTML = `<div class="brand-emoji">${BRAND_FLAG[brand]||'🚗'}</div><div class="brand-name">${brand}</div>`;
     card.addEventListener('click', () => {
-      document.querySelectorAll('.brand-card').forEach(c => c.classList.remove('selected'));
+      document.querySelectorAll('.brand-card').forEach(c=>c.classList.remove('selected'));
       card.classList.add('selected');
       S.selectedBrand = brand;
       goTo('shops');
@@ -604,64 +528,56 @@ function renderBrandGrid() {
     grid.appendChild(card);
   });
 
-  // Build filter chips on shops page too
-  const bar = document.getElementById('brandFilters');
-  if (bar && !bar.children.length) {
-    const allChip = document.createElement('span');
-    allChip.className = 'chip' + (!S.selectedBrand ? ' active' : '');
-    allChip.textContent = 'ALL';
-    allChip.addEventListener('click', () => {
-      setActiveChip(allChip);
-      S.selectedBrand = null;
-      loadShopsPage(null);
-    });
-    bar.appendChild(allChip);
-
-    BRANDS.forEach(b => {
-      const chip = document.createElement('span');
-      chip.className = 'chip' + (S.selectedBrand === b ? ' active' : '');
-      chip.textContent = b;
-      chip.addEventListener('click', () => {
-        setActiveChip(chip);
-        S.selectedBrand = b;
-        loadShopsPage(b);
-      });
-      bar.appendChild(chip);
-    });
-  }
+  // Build filter chips on shops page
+  buildFilterChips();
 }
 
-function setActiveChip(active) {
-  document.querySelectorAll('#brandFilters .chip').forEach(c => c.classList.remove('active'));
-  active.classList.add('active');
+function buildFilterChips() {
+  const bar = document.getElementById('brandChips');
+  if (!bar || bar.children.length) return;
+  const makeChip = (label, brand) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (!brand && !S.selectedBrand ? ' active' : (S.selectedBrand===brand ? ' active' : ''));
+    chip.textContent = label;
+    chip.addEventListener('click', () => {
+      bar.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      S.selectedBrand = brand;
+      document.getElementById('shopsInput').value = '';
+      loadShopsPage(brand);
+    });
+    bar.appendChild(chip);
+  };
+  makeChip('All', null);
+  BRANDS.forEach(b => makeChip(b, b));
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    BOOKING
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 function startBooking(shopId, shopName) {
-  S.bookingShopId   = shopId;
-  S.bookingShopName = shopName;
-  S.selectedDate    = null;
-  S.selectedSlot    = null;
-
+  S.bookingShopId = shopId; S.bookingShopName = shopName;
+  S.selectedDate  = null;   S.selectedSlot    = null;
   document.getElementById('bookingShopName').textContent = shopName;
+  document.getElementById('sumService').textContent  = '—';
+  document.getElementById('sumDateTime').textContent = '—';
+  document.getElementById('sumCar').textContent      = '—';
   loadBookingServices(shopId);
   buildDateRail();
-  document.getElementById('slotGrid').innerHTML = '<span class="slot-hint">Select a date first</span>';
+  document.getElementById('slotGrid').innerHTML = '<span class="slot-hint">← Pick a date first</span>';
   goTo('booking');
 }
 
 async function loadBookingServices(shopId) {
   const sel = document.getElementById('bookingService');
   sel.innerHTML = '<option value="">Loading…</option>';
-  const { data } = await sb.from('services').select('*').eq('shop_id', shopId).eq('is_available', true);
+  const { data } = await sb.from('services').select('*').eq('shop_id',shopId).eq('is_available',true).order('name');
   sel.innerHTML = '<option value="">Select a service…</option>';
-  (data || []).forEach(s => {
+  (data||[]).forEach(s => {
     const opt = document.createElement('option');
     opt.value = s.id;
-    opt.textContent = `${s.name}${s.price_min ? ' — RM ' + Math.round(+s.price_min) : ''}`;
+    opt.textContent = `${s.name}${s.price_min?' — RM '+Math.round(+s.price_min):''}`;
     sel.appendChild(opt);
   });
 }
@@ -669,17 +585,17 @@ async function loadBookingServices(shopId) {
 function buildDateRail() {
   const rail = document.getElementById('dateRail');
   rail.innerHTML = '';
-  for (let i = 1; i <= 14; i++) {
-    const d    = new Date();
-    d.setDate(d.getDate() + i);
+  for (let i=1; i<=14; i++) {
+    const d = new Date(); d.setDate(d.getDate()+i);
     const chip = document.createElement('div');
     chip.className = 'date-chip';
     chip.innerHTML = `<div class="dc-day">${DAYS[d.getDay()]}</div><div class="dc-num">${d.getDate()}</div>`;
     chip.addEventListener('click', () => {
-      rail.querySelectorAll('.date-chip').forEach(c => c.classList.remove('selected'));
+      rail.querySelectorAll('.date-chip').forEach(c=>c.classList.remove('selected'));
       chip.classList.add('selected');
       S.selectedDate = d;
       S.selectedSlot = null;
+      updateBookingSummary();
       loadSlots(S.bookingShopId, d);
     });
     rail.appendChild(chip);
@@ -688,599 +604,538 @@ function buildDateRail() {
 
 async function loadSlots(shopId, date) {
   const grid = document.getElementById('slotGrid');
-  grid.innerHTML = '<span class="slot-hint">Loading…</span>';
+  grid.innerHTML = '<span class="slot-hint">Loading slots…</span>';
   try {
     const ymd = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-    const { data, error } = await sb.rpc('get_shop_available_slots', { p_shop_id: shopId, p_date: ymd });
+    const { data, error } = await sb.rpc('get_shop_available_slots', { p_shop_id:shopId, p_date:ymd });
     grid.innerHTML = '';
-    if (error || !data?.length) {
-      grid.innerHTML = '<span class="slot-hint">No available slots for this date.</span>';
-      return;
-    }
+    if (error||!data?.length) { grid.innerHTML = '<span class="slot-hint" style="grid-column:1/-1">No available slots for this date.</span>'; return; }
     data.forEach(slot => {
-      const t   = new Date(slot.slot_start);
+      const t = new Date(slot.slot_start);
       const btn = document.createElement('div');
       btn.className = 'slot-btn';
       btn.textContent = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
       btn.addEventListener('click', () => {
-        grid.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+        grid.querySelectorAll('.slot-btn').forEach(b=>b.classList.remove('selected'));
         btn.classList.add('selected');
         S.selectedSlot = slot.slot_start;
+        updateBookingSummary();
       });
       grid.appendChild(btn);
     });
-  } catch (e) {
-    grid.innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
-  }
+  } catch(e) { grid.innerHTML = `<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+function updateBookingSummary() {
+  const svc  = document.getElementById('bookingService');
+  const brand = document.getElementById('bookingBrand').value;
+  const model = document.getElementById('bookingModel').value.trim();
+  const dt  = S.selectedDate && S.selectedSlot ? `${fmtDate(S.selectedDate)} ${fmtTime(S.selectedSlot)}` : '—';
+  document.getElementById('sumService').textContent  = svc.options[svc.selectedIndex]?.text || '—';
+  document.getElementById('sumDateTime').textContent = dt;
+  document.getElementById('sumCar').textContent      = [brand, model].filter(Boolean).join(' ') || '—';
 }
 
 async function confirmBooking() {
-  if (!S.selectedSlot) { toast('Please select a time slot', 'warning'); return; }
+  if (!S.selectedSlot) { toast('Please select a time slot to continue.','warning'); return; }
   const serviceId = document.getElementById('bookingService').value;
   const brand     = document.getElementById('bookingBrand').value;
   const model     = document.getElementById('bookingModel').value.trim();
   const plate     = document.getElementById('bookingPlate').value.trim();
   const notes     = document.getElementById('bookingNotes').value.trim();
-
-  btnLoading('confirmBookingBtn', true);
+  btnLoad('confirmBookingBtn', true);
   try {
     const { error } = await sb.from('appointments').insert({
       user_id:      S.user.id,
       shop_id:      S.bookingShopId,
       scheduled_at: S.selectedSlot,
       service_id:   serviceId || null,
-      car_brand:    brand || null,
-      car_model:    model || null,
-      car_plate:    plate || null,
-      notes:        notes || null,
+      car_brand:    brand     || null,
+      car_model:    model     || null,
+      car_plate:    plate     || null,
+      notes:        notes     || null,
     });
     if (error) throw error;
-    toast('Booking confirmed! ✅', 'success');
+    toast('🎉 Booking confirmed! You\'ll receive a notification shortly.','success',5000);
     goTo('appointments');
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    btnLoading('confirmBookingBtn', false);
-  }
+  } catch(e) { toast(e.message,'error'); }
+  finally { btnLoad('confirmBookingBtn', false); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    APPOINTMENTS
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 async function loadAppointments() {
   const el = document.getElementById('apptList');
-  el.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  el.innerHTML = '<div class="spin-box"><div class="spinner"></div></div>';
   try {
     const { data, error } = await sb.from('appointments')
-      .select('*, repair_shops(name, address), services(name)')
-      .eq('user_id', S.user.id)
-      .order('scheduled_at', { ascending: false });
+      .select('*, repair_shops(name,address), services(name)')
+      .eq('user_id', S.user.id).order('scheduled_at',{ascending:false});
     if (error) throw error;
-
-    el.innerHTML = '';
-    if (!data?.length) {
-      el.innerHTML = emptyState('📅', 'No bookings yet', 'Find a repair shop and book your first appointment.');
-      return;
-    }
-
-    data.forEach(a => {
-      const card = document.createElement('div');
-      card.className = 'appt-card';
-      card.innerHTML = `
-        <div class="appt-card-top">
-          <div>
-            <div class="appt-shop-name">${escHtml(a.repair_shops?.name || '—')}</div>
-            <div class="appt-addr">${escHtml(a.repair_shops?.address || '')}</div>
-          </div>
-          ${statusBadge(a.status)}
-        </div>
-        <div class="appt-meta">
-          <div class="appt-meta-item">📅 ${fmtDate(a.scheduled_at)}</div>
-          <div class="appt-meta-item">🕐 ${fmtTime(a.scheduled_at)}</div>
-          ${a.services?.name ? `<div class="appt-meta-item">🔧 ${escHtml(a.services.name)}</div>` : ''}
-          ${a.car_brand ? `<div class="appt-meta-item">🚗 ${escHtml(a.car_brand)}${a.car_model ? ' ' + escHtml(a.car_model) : ''}</div>` : ''}
-        </div>
-        ${a.status === 'pending' ? `<div class="appt-actions"><button class="btn btn-ghost btn-sm" style="color:var(--red)" data-appt-id="${a.id}">Cancel Booking</button></div>` : ''}`;
-
-      const cancelBtn = card.querySelector('[data-appt-id]');
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-          S.cancelTargetId = a.id;
-          openModal('modalConfirm');
-        });
-      }
-      el.appendChild(card);
-    });
-  } catch (e) {
-    el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`;
-  }
+    S.allAppts = data || [];
+    renderAppts('all');
+  } catch(e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
 }
 
-async function executeCancelBooking() {
+function renderAppts(filter) {
+  const el   = document.getElementById('apptList');
+  const data = filter === 'all' ? S.allAppts : S.allAppts.filter(a => a.status === filter);
+  el.innerHTML = '';
+  if (!data.length) { el.innerHTML = emptyHtml('📅','No bookings found','Book a repair shop to see your appointments here.'); return; }
+  data.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'appt-card';
+    card.innerHTML = `
+      <div class="appt-top">
+        <div>
+          <div class="appt-shop">${esc(a.repair_shops?.name||'Unknown Shop')}</div>
+          <div class="appt-addr">${esc(a.repair_shops?.address||'')}</div>
+        </div>
+        ${statusBadge(a.status)}
+      </div>
+      <div class="appt-details">
+        <div class="appt-detail">📅 ${fmtDate(a.scheduled_at)}</div>
+        <div class="appt-detail">🕐 ${fmtTime(a.scheduled_at)}</div>
+        ${a.services?.name ? `<div class="appt-detail">🔧 ${esc(a.services.name)}</div>` : ''}
+        ${a.car_brand ? `<div class="appt-detail">🚗 ${esc(a.car_brand)}${a.car_model?' '+esc(a.car_model):''}</div>` : ''}
+      </div>
+      ${a.status==='pending' ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" style="color:var(--red)" data-appt="${a.id}">Cancel Booking</button></div>` : ''}`;
+    const cancelBtn = card.querySelector('[data-appt]');
+    if (cancelBtn) { cancelBtn.addEventListener('click', () => { S.cancelTargetId = a.id; openModal('modalConfirm'); }); }
+    el.appendChild(card);
+  });
+}
+
+async function doCancel() {
   if (!S.cancelTargetId) return;
-  const { error } = await sb.from('appointments')
-    .update({ status: 'cancelled', cancelled_by: S.user.id })
-    .eq('id', S.cancelTargetId);
-  closeModal();
-  S.cancelTargetId = null;
-  if (error) { toast(error.message, 'error'); return; }
-  toast('Booking cancelled.');
-  loadAppointments();
+  const { error } = await sb.from('appointments').update({status:'cancelled', cancelled_by:S.user.id}).eq('id',S.cancelTargetId);
+  closeModal(); S.cancelTargetId = null;
+  if (error) { toast(error.message,'error'); return; }
+  toast('Booking cancelled.'); loadAppointments();
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    REVIEWS
-═══════════════════════════════════════════════════════════════════════════ */
-
-function openReviewModal(shopId) {
-  S.reviewTargetId = shopId;
-  document.getElementById('reviewRating').value = '0';
-  document.getElementById('reviewComment').value = '';
-  document.querySelectorAll('#starPicker span').forEach(s => s.classList.remove('lit'));
-  openModal('modalReview');
-}
+════════════════════════════════════════════════════════════════ */
 
 async function submitReview() {
   const rating  = parseInt(document.getElementById('reviewRating').value, 10);
   const comment = document.getElementById('reviewComment').value.trim();
-  if (!rating) { toast('Please select a star rating', 'warning'); return; }
-
-  btnLoading('submitReviewBtn', true);
+  if (!rating) { toast('Please select a star rating.','warning'); return; }
+  btnLoad('submitReviewBtn', true);
   try {
-    const { error } = await sb.from('reviews').insert({
-      shop_id: S.reviewTargetId,
-      user_id: S.user.id,
-      rating,
-      comment: comment || null,
-    });
+    const { error } = await sb.from('reviews').insert({ shop_id:S.reviewTargetId, user_id:S.user.id, rating, comment:comment||null });
     if (error) throw error;
     closeModal();
-    toast('Review submitted! ⭐', 'success');
-    // Refresh detail if on that shop
+    toast('Review submitted! ⭐ Thank you.','success');
     if (S.currentShopId === S.reviewTargetId) openShopDetail(S.currentShopId);
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    btnLoading('submitReviewBtn', false);
-  }
+  } catch(e) { toast(e.message,'error'); }
+  finally { btnLoad('submitReviewBtn', false); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    REMINDERS
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 async function loadReminders() {
   const el = document.getElementById('reminderList');
-  el.innerHTML = '<div class="loading-state"><div class="spinner"></div></div>';
+  el.innerHTML = '<div class="spin-box"><div class="spinner"></div></div>';
   try {
     const { data, error } = await sb.from('maintenance_reminders')
-      .select('*').eq('user_id', S.user.id).eq('is_completed', false)
-      .order('due_date', { ascending: true });
+      .select('*').eq('user_id',S.user.id).eq('is_completed',false).order('due_date');
     if (error) throw error;
-
     el.innerHTML = '';
-    if (!data?.length) {
-      el.innerHTML = emptyState('🔔', 'No reminders set', 'Add a reminder to track your maintenance schedule.');
-      return;
-    }
-
+    if (!data?.length) { el.innerHTML = emptyHtml('🔔','No reminders set','Add a reminder to track your car maintenance schedule.'); return; }
     data.forEach(r => {
-      const meta    = REMINDER_META[r.type] || REMINDER_META.other;
+      const meta    = REMINDER_META[r.type]||REMINDER_META.other;
       const dueDate = new Date(r.due_date);
       const overdue = dueDate < new Date();
       const card    = document.createElement('div');
-      card.className = `reminder-card${overdue ? ' overdue' : ''}`;
+      card.className = `reminder-card${overdue?' overdue':''}`;
       card.innerHTML = `
-        <div class="rm-icon">${meta.emoji}</div>
-        <div class="rm-body">
-          <div class="rm-title">${escHtml(r.title)}</div>
-          <div class="rm-date${overdue ? ' overdue' : ''}">${overdue ? '⚠️ Overdue — ' : 'Due: '}${fmtDate(r.due_date)}</div>
-          ${r.notes ? `<div style="font-size:.78rem;color:var(--muted);margin-top:2px">${escHtml(r.notes)}</div>` : ''}
+        <div class="rm-ico">${meta.emoji}</div>
+        <div class="rm-info">
+          <div class="rm-title">${esc(r.title)}</div>
+          <div class="rm-date${overdue?' overdue':''}">${overdue?'⚠️ Overdue — ':'Due: '}${fmtDate(r.due_date)}${r.mileage?' · '+r.mileage+' km':''}</div>
+          ${r.notes?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">${esc(r.notes)}</div>`:''}
         </div>
-        <div class="rm-actions">
+        <div class="rm-btns">
           <button class="btn btn-sm" style="background:var(--green-dim);color:var(--green)" data-done="${r.id}">✓ Done</button>
           <button class="btn btn-ghost btn-sm btn-icon" data-del="${r.id}">🗑</button>
         </div>`;
-
       card.querySelector('[data-done]').addEventListener('click', () => completeReminder(r.id));
       card.querySelector('[data-del]').addEventListener('click',  () => deleteReminder(r.id));
       el.appendChild(card);
     });
-  } catch (e) {
-    el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`;
-  }
+  } catch(e) { el.innerHTML = `<p style="color:var(--red)">${e.message}</p>`; }
 }
 
-async function createReminder() {
-  const type  = document.getElementById('reminderType').value;
-  const title = document.getElementById('reminderTitle').value.trim();
-  const date  = document.getElementById('reminderDate').value;
-  const notes = document.getElementById('reminderNotes').value.trim();
-  if (!title || !date) { toast('Title and date are required', 'warning'); return; }
-
-  btnLoading('saveReminderBtn', true);
+async function saveReminder() {
+  const type     = document.getElementById('reminderType').value;
+  const title    = document.getElementById('reminderTitle').value.trim();
+  const date     = document.getElementById('reminderDate').value;
+  const mileage  = document.getElementById('reminderMileage').value;
+  const notes    = document.getElementById('reminderNotes').value.trim();
+  if (!title||!date) { toast('Title and due date are required.','warning'); return; }
+  btnLoad('saveReminderBtn', true);
   try {
-    const { error } = await sb.from('maintenance_reminders').insert({
-      user_id: S.user.id, type, title, due_date: date, notes: notes || null,
-    });
+    const { error } = await sb.from('maintenance_reminders').insert({ user_id:S.user.id, type, title, due_date:date, mileage:mileage||null, notes:notes||null });
     if (error) throw error;
-    toast('Reminder saved! 🔔', 'success');
-    // Reset form
-    document.getElementById('reminderTitle').value = '';
-    document.getElementById('reminderDate').value  = '';
-    document.getElementById('reminderNotes').value = '';
-    document.getElementById('addReminderForm').classList.add('hidden');
+    toast('Reminder saved! 🔔','success');
+    ['reminderTitle','reminderDate','reminderMileage','reminderNotes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('reminderForm').classList.add('hidden');
     loadReminders();
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    btnLoading('saveReminderBtn', false);
-  }
+  } catch(e) { toast(e.message,'error'); }
+  finally { btnLoad('saveReminderBtn', false); }
 }
 
 async function completeReminder(id) {
-  await sb.from('maintenance_reminders').update({
-    is_completed: true,
-    completed_at: new Date().toISOString()
-  }).eq('id', id);
-  toast('Great job! Reminder marked done ✅', 'success');
-  loadReminders();
+  await sb.from('maintenance_reminders').update({is_completed:true, completed_at:new Date().toISOString()}).eq('id',id);
+  toast('✅ Reminder completed! Great job keeping up with maintenance.','success'); loadReminders();
 }
-
 async function deleteReminder(id) {
   if (!confirm('Delete this reminder?')) return;
-  await sb.from('maintenance_reminders').delete().eq('id', id);
-  toast('Reminder deleted.');
-  loadReminders();
+  await sb.from('maintenance_reminders').delete().eq('id',id);
+  toast('Reminder deleted.'); loadReminders();
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    AI DIAGNOSIS
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
-function initAiPage() {
-  const chips = document.getElementById('quickProblems');
-  if (chips.children.length) return; // already done
+let aiInitialised = false;
+function initAI() {
+  if (aiInitialised) return;
+  aiInitialised = true;
+  const chips = document.getElementById('aiChips');
   AI_PROBLEMS.forEach(p => {
     const chip = document.createElement('button');
-    chip.className = 'prob-chip';
+    chip.className = 'ai-chip';
     chip.textContent = `${p.emoji} ${p.label}`;
-    chip.addEventListener('click', () => sendAiMsg(`My car has a ${p.label.toLowerCase()} problem`, p.key));
+    chip.addEventListener('click', () => sendAI(`My car has a ${p.label.toLowerCase()} problem`, p.key));
     chips.appendChild(chip);
   });
 }
 
-function sendAiMsg(text, keyHint = null) {
+function sendAI(textOverride, keyHint=null) {
   const input = document.getElementById('chatInput');
-  const msg   = text || input.value.trim();
+  const msg   = textOverride || input.value.trim();
   if (!msg) return;
-  input.value = '';
-  input.style.height = 'auto';
-
-  appendBubble(msg, 'user');
+  input.value = ''; input.style.height = 'auto';
+  appendMsg(msg, 'user');
 
   // Typing indicator
-  const typing = appendBubble('…', 'bot');
-  typing.id = 'typingBubble';
+  const typing = appendMsg('<em>WRENCH AI is thinking…</em>', 'bot');
+  typing.style.opacity = '.6';
 
   setTimeout(() => {
     typing.remove();
-    const key = keyHint || detectAiKey(msg);
-    const response = AI_KNOWLEDGE[key] || AI_KNOWLEDGE.default;
-    appendBubble(response, 'bot');
-
-    // Follow-up suggestion
+    const key = keyHint || detectKey(msg);
+    if (key === 'findShops') { goTo('shops'); return; }
+    appendMsg(AI_KB[key]||AI_KB.default, 'bot');
     setTimeout(() => {
-      appendBubble('🔍 Want me to find nearby repair shops for this issue? <strong>Just say "find shops" or browse below.</strong>', 'bot');
-    }, 700);
-  }, 1400 + Math.random() * 600);
+      appendMsg('Would you like me to find repair shops near you for this issue? 👉 <a href="#" onclick="goTo(\'shops\');return false" style="color:var(--fire);font-weight:700">Find Shops →</a>', 'bot');
+    }, 600);
+  }, 1200 + Math.random()*700);
 }
 
-function detectAiKey(msg) {
+function detectKey(msg) {
   const m = msg.toLowerCase();
-  if (/engine|stall|misfire|idle|start/.test(m)) return 'engine';
-  if (/brake|stop|squeal|grind/.test(m))         return 'brake';
-  if (/battery|charge|dead|alternator/.test(m))  return 'battery';
-  if (/ac|air.?con|cool|hot cabin/.test(m))       return 'ac';
-  if (/oil|leak|drip/.test(m))                   return 'oil';
-  if (/tyre|tire|flat|puncture/.test(m))         return 'tire';
-  if (/shop|find|mechanic/.test(m))              { goTo('shops'); return null; }
+  if (/engine|stall|misfire|idle|rough|won.?t start/.test(m)) return 'engine';
+  if (/brake|braking|stop|squeal|grind|pedal/.test(m))        return 'brake';
+  if (/battery|dead|charge|alternator|won.?t start/.test(m))  return 'battery';
+  if (/ac|air.?con|cooling|cold|hot cabin/.test(m))           return 'ac';
+  if (/oil|leak|drip|smoke/.test(m))                          return 'oil';
+  if (/tyre|tire|flat|puncture|wheel|alignment/.test(m))      return 'tire';
+  if (/overheat|temperature|hot engine/.test(m))              return 'overheat';
+  if (/find|shop|mechanic|workshop/.test(m))                  return 'findShops';
   return 'default';
 }
 
-function appendBubble(text, side) {
+function appendMsg(html, side) {
   const feed = document.getElementById('chatFeed');
   const now  = new Date();
   const ts   = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const div  = document.createElement('div');
-  div.className = `bubble bubble-${side}`;
-  div.innerHTML = `<div class="bubble-text">${text}</div><div class="bubble-ts">${ts}</div>`;
+  div.className = `chat-msg ${side==='user'?'user-msg':'bot-msg'}`;
+  div.innerHTML = side==='bot'
+    ? `<div class="msg-icon">🤖</div><div><div class="msg-bubble">${html}</div><div class="msg-time">${ts}</div></div>`
+    : `<div><div class="msg-bubble">${esc(html)}</div><div class="msg-time" style="text-align:right">${ts}</div></div>`;
   feed.appendChild(div);
   feed.scrollTop = feed.scrollHeight;
   return div;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    TOW TRUCK
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
-async function submitTowRequest() {
+async function submitTow() {
   const pickup = document.getElementById('towPickup').value.trim();
-  if (!pickup) { toast('Please enter your pickup location', 'warning'); return; }
-
-  btnLoading('towSubmitBtn', true);
+  if (!pickup) { toast('Please enter your pickup location.','warning'); return; }
+  btnLoad('towSubmitBtn', true);
   try {
     const { error } = await sb.from('tow_requests').insert({
       user_id:             S.user.id,
       pickup_location:     'POINT(101.6869 3.1390)',
       pickup_address:      pickup,
-      destination_address: document.getElementById('towDest').value.trim() || null,
-      car_brand:           document.getElementById('towBrand').value || null,
-      car_plate:           document.getElementById('towPlate').value.trim() || null,
-      problem_description: document.getElementById('towNotes').value.trim() || null,
+      destination_address: document.getElementById('towDest').value.trim()||null,
+      car_brand:           document.getElementById('towBrand').value||null,
+      car_plate:           document.getElementById('towPlate').value.trim()||null,
+      problem_description: document.getElementById('towNotes').value.trim()||null,
     });
     if (error) throw error;
-    document.getElementById('towFormWrap').classList.add('hidden');
-    document.getElementById('towSuccess').classList.remove('hidden');
-    toast('Tow request sent! 🚛', 'success');
-  } catch (e) {
-    toast(e.message, 'error');
-  } finally {
-    btnLoading('towSubmitBtn', false);
-  }
+    document.getElementById('towFormSection').classList.add('hidden');
+    document.getElementById('towSuccessSection').classList.remove('hidden');
+    toast('🚛 Tow request sent! A driver will contact you soon.','success',5000);
+  } catch(e) { toast(e.message,'error'); }
+  finally { btnLoad('towSubmitBtn', false); }
 }
 
 function resetTow() {
-  document.getElementById('towFormWrap').classList.remove('hidden');
-  document.getElementById('towSuccess').classList.add('hidden');
-  ['towPickup','towDest','towPlate','towNotes'].forEach(id => { document.getElementById(id).value = ''; });
-  document.getElementById('towBrand').value = '';
+  document.getElementById('towFormSection').classList.remove('hidden');
+  document.getElementById('towSuccessSection').classList.add('hidden');
+  ['towPickup','towDest','towPlate','towNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('towBrand').value='';
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
    OWNER DASHBOARD
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 async function loadDashboard() {
   try {
-    const { data: shops } = await sb.from('repair_shops').select('id,avg_rating,total_reviews').eq('owner_id', S.user.id);
+    const { data:shops } = await sb.from('repair_shops').select('id,avg_rating').eq('owner_id',S.user.id);
     if (!shops?.length) {
       document.getElementById('statBookings').textContent = '0';
       document.getElementById('statRating').textContent   = '—';
       document.getElementById('statRevenue').textContent  = 'RM 0';
-      document.getElementById('dashAppts').innerHTML = '<p style="color:var(--muted);font-size:.875rem">Register your shop to see live data.</p>';
+      document.getElementById('dashAppts').innerHTML = '<p style="color:var(--muted);font-size:.875rem;padding:10px 0">Register your shop to see live data here.</p>';
       return;
     }
-
-    const shopIds = shops.map(s => s.id);
+    const shopIds = shops.map(s=>s.id);
     const today   = new Date(); today.setHours(0,0,0,0);
-
     const [apptRes, revRes] = await Promise.all([
-      sb.from('appointments').select('*, users(full_name), services(name)')
-        .in('shop_id', shopIds).gte('scheduled_at', today.toISOString()).order('scheduled_at'),
-      sb.from('appointments').select('total_price')
-        .in('shop_id', shopIds).eq('status', 'completed')
-        .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+      sb.from('appointments').select('*, users(full_name), services(name)').in('shop_id',shopIds).gte('scheduled_at',today.toISOString()).order('scheduled_at'),
+      sb.from('appointments').select('total_price').in('shop_id',shopIds).eq('status','completed').gte('created_at', new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString())
     ]);
-
-    const appts   = apptRes.data || [];
-    const revenue = (revRes.data || []).reduce((s, r) => s + (+r.total_price || 0), 0);
-    const avgR    = shops.reduce((s, sh) => s + (+sh.avg_rating || 0), 0) / shops.length;
-
+    const appts  = apptRes.data||[];
+    const rev    = (revRes.data||[]).reduce((sum,r)=>sum+(+r.total_price||0),0);
+    const avgRat = shops.reduce((s,sh)=>s+(+sh.avg_rating||0),0)/shops.length;
     document.getElementById('statBookings').textContent = appts.length;
-    document.getElementById('statRating').textContent   = avgR.toFixed(1) + '⭐';
-    document.getElementById('statRevenue').textContent  = `RM ${revenue.toLocaleString()}`;
-
+    document.getElementById('statRating').textContent   = avgRat.toFixed(1)+'★';
+    document.getElementById('statRevenue').textContent  = `RM ${rev.toLocaleString()}`;
     const list = document.getElementById('dashAppts');
     list.innerHTML = '';
-    if (!appts.length) { list.innerHTML = '<p style="color:var(--muted);font-size:.875rem">No appointments today.</p>'; return; }
-    appts.slice(0, 7).forEach(a => {
+    if (!appts.length) { list.innerHTML='<p style="color:var(--muted);font-size:.875rem;padding:10px 0">No appointments scheduled for today.</p>'; return; }
+    appts.slice(0,8).forEach(a=>{
       const row = document.createElement('div');
       row.className = 'dash-appt-row';
-      row.innerHTML = `
-        <div class="dash-time">${fmtTime(a.scheduled_at)}</div>
-        <div>
-          <div class="dash-name">${escHtml(a.users?.full_name || 'Customer')}</div>
-          <div class="dash-svc">${escHtml(a.services?.name || 'General service')}</div>
-        </div>
-        ${statusBadge(a.status)}`;
+      row.innerHTML = `<div class="dash-time">${fmtTime(a.scheduled_at)}</div><div><div class="dash-name">${esc(a.users?.full_name||'Customer')}</div><div class="dash-svc">${esc(a.services?.name||'General service')}</div></div>${statusBadge(a.status)}`;
       list.appendChild(row);
     });
-  } catch (e) { console.error('Dashboard error:', e); }
+  } catch(e) { console.error('Dashboard error:', e); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
+   PROFILE STATS
+════════════════════════════════════════════════════════════════ */
+
+async function loadProfileStats() {
+  try {
+    const [aRes, rRes] = await Promise.all([
+      sb.from('appointments').select('id',{count:'exact',head:true}).eq('user_id',S.user.id),
+      sb.from('reviews').select('id',{count:'exact',head:true}).eq('user_id',S.user.id),
+    ]);
+    document.getElementById('psBookings').textContent = aRes.count||0;
+    document.getElementById('psFavs').textContent     = S.favorites.size;
+    document.getElementById('psReviews').textContent  = rRes.count||0;
+  } catch(e) { console.error(e); }
+}
+
+/* ════════════════════════════════════════════════════════════════
    EMERGENCY
-═══════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════ */
 
 async function handleEmergency() {
-  toast('🔍 Finding nearest emergency shop…', 'info', 4000);
+  toast('🔍 Finding nearest emergency shop…','info',4000);
   try {
-    const { data, error } = await sb.rpc('get_emergency_shop', { p_lat: 3.1390, p_lng: 101.6869 });
-    if (error || !data?.length) { toast('No emergency shops found nearby.', 'warning'); return; }
-    toast(`🚨 Found: ${data[0].name} — ${fmtDist(data[0].distance_meters)} away`, 'success', 5000);
+    const { data, error } = await sb.rpc('get_emergency_shop',{p_lat:3.1390, p_lng:101.6869});
+    if (error||!data?.length) { toast('No emergency shops found near you right now.','warning'); return; }
+    toast(`🚨 Found: ${data[0].name} — ${fmtDist(data[0].distance_meters)} away`,'success',5000);
     openShopDetail(data[0].id);
-  } catch (e) {
-    toast('Error finding emergency shop.', 'error');
-  }
+  } catch(e) { toast('Error finding emergency shop.','error'); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   BRAND DROPDOWNS (for booking & tow forms)
+════════════════════════════════════════════════════════════════ */
 
-function populateBrandDropdowns() {
-  ['bookingBrand', 'towBrand'].forEach(id => {
+function fillBrandDropdowns() {
+  ['bookingBrand','towBrand'].forEach(id => {
     const sel = document.getElementById(id);
-    if (!sel || sel.options.length > 1) return;
-    BRANDS.forEach(b => {
-      const opt = document.createElement('option');
-      opt.value = b; opt.textContent = b;
-      sel.appendChild(opt);
-    });
+    if (!sel||sel.options.length>1) return;
+    BRANDS.forEach(b => { const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); });
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   EVENT LISTENERS — WIRED UP ON DOM READY
-═══════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   EVENT WIRING  (runs on DOMContentLoaded)
+════════════════════════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  /* ── Auth buttons ─── */
-  document.getElementById('loginBtn').addEventListener('click', handleLogin);
-  document.getElementById('signupBtn').addEventListener('click', handleSignup);
-  document.getElementById('googleBtn').addEventListener('click', () => {
-    sb.auth.signInWithOAuth({ provider: 'google' });
-  });
+  /* ── Auth ── */
+  document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('signupBtn').addEventListener('click', doSignup);
+  document.getElementById('googleBtn').addEventListener('click', () => sb.auth.signInWithOAuth({provider:'google'}));
   document.getElementById('goSignup').addEventListener('click', e => { e.preventDefault(); showPage('signup'); });
   document.getElementById('goLogin').addEventListener('click',  e => { e.preventDefault(); showPage('login'); });
-  document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+  document.getElementById('logoutBtn').addEventListener('click', doLogout);
 
-  /* Allow Enter key to trigger login */
+  // Enter key on login fields
   ['loginEmail','loginPassword'].forEach(id => {
-    document.getElementById(id)?.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+    document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
   });
 
-  /* ── Navigation ─── */
-  // Top nav links and data-nav elements
+  // Password toggles
+  document.getElementById('toggleLoginPw')?.addEventListener('click', () => {
+    const inp = document.getElementById('loginPassword');
+    inp.type = inp.type==='password' ? 'text' : 'password';
+  });
+  document.getElementById('toggleSignupPw')?.addEventListener('click', () => {
+    const inp = document.getElementById('signupPassword');
+    inp.type = inp.type==='password' ? 'text' : 'password';
+  });
+
+  /* ── Global nav (data-nav attribute routing) ── */
   document.addEventListener('click', e => {
-    const nav = e.target.closest('[data-nav]');
-    if (nav) {
-      const dest = nav.dataset.nav;
-      if (dest === 'ai') initAiPage();
-      goTo(dest);
+    const navEl = e.target.closest('[data-nav]');
+    if (navEl && !navEl.closest('#brandGrid')) { // brand grid handles its own clicks
+      goTo(navEl.dataset.nav);
+    }
+    // Close mobile menu on link click
+    if (e.target.closest('[data-cm]') || e.target.closest('.drawer-link')) {
+      document.getElementById('mobileDrawer').classList.add('hidden');
     }
   });
 
-  /* ── Home page ─── */
+  /* ── Hamburger menu ── */
+  document.getElementById('burgerBtn').addEventListener('click', () => {
+    document.getElementById('mobileDrawer').classList.toggle('hidden');
+  });
+
+  /* ── Hero search ── */
   document.getElementById('heroSearchBtn').addEventListener('click', () => {
-    const q = document.getElementById('heroSearchInput').value.trim();
-    if (q) {
-      goTo('shops');
-      setTimeout(() => {
-        document.getElementById('shopsSearchInput').value = q;
-        loadShopsPage(null);
-      }, 150);
-    } else {
-      goTo('shops');
-    }
+    const q = document.getElementById('heroInput').value.trim();
+    goTo('shops');
+    if (q) setTimeout(() => { document.getElementById('shopsInput').value=q; loadShopsPage(null); }, 200);
   });
-  document.getElementById('heroSearchInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('heroSearchBtn').click();
-  });
-  document.getElementById('emergencyTile').addEventListener('click', handleEmergency);
+  document.getElementById('heroInput').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('heroSearchBtn').click(); });
 
-  /* ── Shops page search ─── */
-  document.getElementById('shopsSearchInput').addEventListener('input', () => {
-    loadShopsPage(S.selectedBrand);
+  /* ── Emergency tile ── */
+  document.getElementById('emergencyBtn').addEventListener('click', handleEmergency);
+
+  /* ── Shops search ── */
+  document.getElementById('shopsInput').addEventListener('input', () => {
+    clearTimeout(window._searchTimer);
+    window._searchTimer = setTimeout(() => loadShopsPage(S.selectedBrand), 350);
   });
 
-  /* ── Brand page ─── */
-  document.getElementById('allShopsBtn').addEventListener('click', () => {
-    S.selectedBrand = null; goTo('shops');
-  });
+  /* ── Brand page back & all shops ── */
   document.getElementById('brandsBack').addEventListener('click', goBack);
+  document.getElementById('allShopsBtn').addEventListener('click', () => { S.selectedBrand=null; goTo('shops'); });
 
-  /* ── Detail page ─── */
-  document.getElementById('detailBack').addEventListener('click', goBack);
-  document.getElementById('detailFavBtn').addEventListener('click', toggleFavDetail);
-
-  /* ── Booking page ─── */
-  document.getElementById('bookingBack').addEventListener('click', goBack);
+  /* ── Booking ── */
+  document.getElementById('bookingBackBtn').addEventListener('click', goBack);
   document.getElementById('confirmBookingBtn').addEventListener('click', confirmBooking);
+  // Update summary when service/car fields change
+  ['bookingService','bookingBrand','bookingModel'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateBookingSummary);
+    document.getElementById(id)?.addEventListener('input',  updateBookingSummary);
+  });
 
-  /* ── Appointments ─── */
-  document.getElementById('refreshAppts').addEventListener('click', loadAppointments);
+  /* ── Appointments tabs ── */
+  document.getElementById('apptTabs').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('#apptTabs .tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    renderAppts(tab.dataset.filter);
+  });
+  document.getElementById('refreshApptsBtn').addEventListener('click', loadAppointments);
 
-  /* ── Reminders ─── */
-  document.getElementById('addReminderToggle').addEventListener('click', () => {
-    document.getElementById('addReminderForm').classList.toggle('hidden');
+  /* ── Reminders ── */
+  document.getElementById('addReminderBtn').addEventListener('click', () => {
+    document.getElementById('reminderForm').classList.toggle('hidden');
   });
   document.getElementById('cancelReminderBtn').addEventListener('click', () => {
-    document.getElementById('addReminderForm').classList.add('hidden');
+    document.getElementById('reminderForm').classList.add('hidden');
   });
-  document.getElementById('saveReminderBtn').addEventListener('click', createReminder);
+  document.getElementById('saveReminderBtn').addEventListener('click', saveReminder);
 
-  /* ── AI ─── */
-  document.getElementById('chatSendBtn').addEventListener('click', () => sendAiMsg());
+  /* ── AI Chat ── */
+  document.getElementById('chatSendBtn').addEventListener('click', () => sendAI());
   document.getElementById('chatInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMsg(); }
+    if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendAI(); }
+  });
+  document.getElementById('chatInput').addEventListener('input', function() {
+    this.style.height='auto'; this.style.height=this.scrollHeight+'px';
   });
   document.getElementById('clearChatBtn').addEventListener('click', () => {
-    const feed = document.getElementById('chatFeed');
-    feed.innerHTML = '<div class="bubble bubble-bot"><div class="bubble-text">👋 Chat cleared. How can I help you with your car today?</div></div>';
+    document.getElementById('chatFeed').innerHTML='<div class="chat-msg bot-msg"><div class="msg-icon">🤖</div><div class="msg-bubble">Chat cleared. How can I help with your car today? 🔧</div></div>';
   });
 
-  /* ── Tow ─── */
-  document.getElementById('towSubmitBtn').addEventListener('click', submitTowRequest);
+  /* ── Tow ── */
+  document.getElementById('towSubmitBtn').addEventListener('click', submitTow);
   document.getElementById('towResetBtn').addEventListener('click', resetTow);
 
-  /* ── Modal ─── */
-  document.querySelectorAll('[data-close]').forEach(btn => {
-    btn.addEventListener('click', closeModal);
-  });
-  document.getElementById('modalOverlay').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeModal();
-  });
-  document.getElementById('confirmCancelBtn').addEventListener('click', executeCancelBooking);
+  /* ── Modals ── */
+  document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', closeModal));
+  document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+  document.getElementById('confirmCancelBtn').addEventListener('click', doCancel);
   document.getElementById('submitReviewBtn').addEventListener('click', submitReview);
 
-  /* ── Star picker ─── */
-  const starPicker = document.getElementById('starPicker');
-  starPicker.addEventListener('click', e => {
-    if (!e.target.dataset.v) return;
-    const val = parseInt(e.target.dataset.v, 10);
-    document.getElementById('reviewRating').value = val;
-    starPicker.querySelectorAll('span').forEach((s, i) => {
-      s.classList.toggle('lit', i < val);
-    });
+  /* ── Star picker ── */
+  const picker = document.getElementById('starPicker');
+  picker.addEventListener('click', e => {
+    const v = +e.target.dataset.v; if(!v) return;
+    document.getElementById('reviewRating').value = v;
+    picker.querySelectorAll('span').forEach((s,i) => s.classList.toggle('lit', i<v));
   });
-  starPicker.addEventListener('mouseover', e => {
-    if (!e.target.dataset.v) return;
-    const val = parseInt(e.target.dataset.v, 10);
-    starPicker.querySelectorAll('span').forEach((s, i) => {
-      s.style.color = i < val ? 'var(--gold)' : 'var(--dark-4)';
-    });
+  picker.addEventListener('mouseover', e => {
+    const v = +e.target.dataset.v; if(!v) return;
+    picker.querySelectorAll('span').forEach((s,i) => s.style.color = i<v?'var(--gold)':'');
   });
-  starPicker.addEventListener('mouseleave', () => {
-    const current = parseInt(document.getElementById('reviewRating').value, 10);
-    starPicker.querySelectorAll('span').forEach((s, i) => {
-      s.style.color = '';
-      s.classList.toggle('lit', i < current);
-    });
+  picker.addEventListener('mouseleave', () => {
+    const cur = +document.getElementById('reviewRating').value;
+    picker.querySelectorAll('span').forEach((s,i) => { s.style.color=''; s.classList.toggle('lit',i<cur); });
   });
+
+  /* ── Build filter chips early ── */
+  renderBrandGrid();
+  buildFilterChips();
 
 }); // end DOMContentLoaded
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BOOT — CHECK AUTH STATE
-═══════════════════════════════════════════════════════════════════════════ */
-
+/* ════════════════════════════════════════════════════════════════
+   BOOT — Check Existing Auth Session
+════════════════════════════════════════════════════════════════ */
 (async function boot() {
-  // Splash for at least 1.8s
-  const splashTimer = new Promise(res => setTimeout(res, 1800));
-
-  const { data: { session } } = await sb.auth.getSession();
-
-  await splashTimer; // ensure splash finishes its animation
+  const MIN_SPLASH = new Promise(r => setTimeout(r, 1800));
+  const sessionPr  = sb.auth.getSession();
+  const [, { data:{session} }] = await Promise.all([MIN_SPLASH, sessionPr]);
 
   if (session?.user) {
-    await bootstrapUser(session.user);
+    await bootApp(session.user);
   } else {
     showPage('login');
   }
 
-  // Listen for future auth changes (e.g. OAuth redirect)
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session?.user && !S.user) {
-      await bootstrapUser(session.user);
-    } else if (event === 'SIGNED_OUT') {
-      S.user = null;
-      document.getElementById('app').classList.add('hidden');
-      showPage('login');
-    }
+    if (event==='SIGNED_IN'  && session?.user && !S.user) await bootApp(session.user);
+    if (event==='SIGNED_OUT') { S.user=null; document.getElementById('app').classList.add('hidden'); showPage('login'); }
   });
-
 })();

@@ -1,582 +1,610 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WRENCH — Car Repair Finder</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>WRENCH — Car Repair Finder Malaysia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════
-       TOAST NOTIFICATIONS
-  ═══════════════════════════════════════════ -->
-  <div id="toastStack"></div>
+<!-- ▓▓ TOAST STACK ▓▓ -->
+<div id="toastStack"></div>
 
-  <!-- ═══════════════════════════════════════════
-       MODAL OVERLAY
-  ═══════════════════════════════════════════ -->
-  <div id="modalOverlay" class="modal-overlay">
-    <!-- Review Modal -->
-    <div id="modalReview" class="modal hidden">
-      <div class="modal-head">
-        <span class="modal-title">LEAVE A REVIEW</span>
-        <button class="modal-close" data-close="modalReview">✕</button>
-      </div>
-      <div class="star-picker" id="starPicker">
-        <span data-v="1">★</span><span data-v="2">★</span>
-        <span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
-      </div>
-      <input type="hidden" id="reviewRating" value="0" />
-      <textarea id="reviewComment" class="field field-area" placeholder="Tell others about your experience…"></textarea>
-      <button class="btn btn-primary btn-block" id="submitReviewBtn">SUBMIT REVIEW</button>
+<!-- ▓▓ MODALS ▓▓ -->
+<div id="modalOverlay" class="modal-overlay">
+  <!-- Review Modal -->
+  <div id="modalReview" class="modal hidden">
+    <div class="modal-head">
+      <span class="modal-title">WRITE A REVIEW</span>
+      <button class="modal-x" data-close>✕</button>
     </div>
-
-    <!-- Confirm Cancel Modal -->
-    <div id="modalConfirm" class="modal hidden">
-      <div class="modal-head">
-        <span class="modal-title">CANCEL BOOKING?</span>
-        <button class="modal-close" data-close="modalConfirm">✕</button>
-      </div>
-      <p class="modal-body-text">This action cannot be undone. The shop will be notified.</p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" data-close="modalConfirm">Keep Booking</button>
-        <button class="btn btn-danger" id="confirmCancelBtn">Yes, Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════
-       PAGE: SPLASH
-  ═══════════════════════════════════════════ -->
-  <div id="pg-splash" class="page active">
-    <div class="splash-wrap">
-      <div class="splash-logo-box">
-        <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
-          <path d="M10 30C10 18.954 18.954 10 30 10s20 8.954 20 20-8.954 20-20 20S10 41.046 10 30z" fill="#FF4D00" opacity=".18"/>
-          <path d="M38 22l-4 4-2-2-2 2 2 2-8 8H20v4h4l8-8 2 2 2-2-2-2 4-4-2-4z" fill="#FF4D00"/>
-        </svg>
-      </div>
-      <h1 class="splash-wordmark">WRENCH</h1>
-      <p class="splash-tagline">Find. Book. Fix.</p>
-      <div class="splash-loader">
-        <div class="loader-bar"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════
-       PAGE: LOGIN
-  ═══════════════════════════════════════════ -->
-  <div id="pg-login" class="page hidden">
-    <div class="auth-layout">
-      <div class="auth-panel-left">
-        <div class="auth-left-inner">
-          <div class="auth-brand">WRENCH</div>
-          <h2 class="auth-headline">MALAYSIA'S<br/>TRUSTED CAR<br/>REPAIR NETWORK</h2>
-          <ul class="auth-perks">
-            <li><span class="perk-dot"></span> 500+ Verified Mechanics</li>
-            <li><span class="perk-dot"></span> Real-Time Slot Booking</li>
-            <li><span class="perk-dot"></span> AI Fault Diagnosis</li>
-            <li><span class="perk-dot"></span> 24/7 Emergency Towing</li>
-          </ul>
-          <div class="auth-decorline"></div>
+    <div class="form-stack mt-16">
+      <div class="field-group">
+        <label class="field-label">YOUR RATING</label>
+        <div class="star-picker" id="starPicker">
+          <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
         </div>
+        <input type="hidden" id="reviewRating" value="0"/>
       </div>
-      <div class="auth-panel-right">
-        <div class="auth-form-wrap">
-          <h3 class="auth-form-title">SIGN IN</h3>
-          <div id="loginErr" class="err-banner hidden"></div>
-          <div class="form-stack">
-            <div class="field-group">
-              <label class="field-label">Email Address</label>
-              <input id="loginEmail" type="email" class="field" placeholder="you@example.com" />
-            </div>
-            <div class="field-group">
-              <label class="field-label">Password</label>
-              <input id="loginPassword" type="password" class="field" placeholder="••••••••" />
-            </div>
-            <button id="loginBtn" class="btn btn-primary btn-block btn-lg">SIGN IN</button>
-            <button class="btn btn-outline btn-block" id="googleBtn">
-              <span class="google-g">G</span> Continue with Google
-            </button>
+      <div class="field-group">
+        <label class="field-label">COMMENT</label>
+        <textarea id="reviewComment" class="field field-area" rows="4" placeholder="Share your experience…"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" id="submitReviewBtn">SUBMIT REVIEW</button>
+    </div>
+  </div>
+  <!-- Cancel Confirm Modal -->
+  <div id="modalConfirm" class="modal hidden">
+    <div class="modal-head">
+      <span class="modal-title">CANCEL BOOKING?</span>
+      <button class="modal-x" data-close>✕</button>
+    </div>
+    <p class="modal-body-txt">This cannot be undone. The shop will be notified of your cancellation.</p>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close>Keep it</button>
+      <button class="btn btn-danger" id="confirmCancelBtn">Yes, Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ▓▓ PAGE: SPLASH ▓▓ -->
+<div id="pg-splash" class="page active">
+  <div class="splash-wrap">
+    <div class="splash-icon">
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+        <rect width="56" height="56" rx="16" fill="#FF4D00" fill-opacity=".15"/>
+        <path d="M37 19l-4 4-3-3-3 3 3 3-8 8h-4v4h4l8-8 3 3 3-3-3-3 4-4-2-5z" fill="#FF4D00"/>
+      </svg>
+    </div>
+    <div class="splash-title">WRENCH</div>
+    <div class="splash-tagline">Find · Book · Fix</div>
+    <div class="splash-bar-wrap"><div class="splash-bar" id="splashBar"></div></div>
+  </div>
+</div>
+
+<!-- ▓▓ PAGE: LOGIN ▓▓ -->
+<div id="pg-login" class="page hidden">
+  <div class="auth-split">
+    <div class="auth-left">
+      <div class="auth-left-content">
+        <div class="auth-brand-tag">WRENCH</div>
+        <h1 class="auth-headline">MALAYSIA'S<br/>TRUSTED CAR<br/>REPAIR NETWORK</h1>
+        <ul class="auth-perks">
+          <li><span class="perk-pip"></span>500+ Verified Workshops</li>
+          <li><span class="perk-pip"></span>Real-Time Slot Booking</li>
+          <li><span class="perk-pip"></span>AI Car Fault Diagnosis</li>
+          <li><span class="perk-pip"></span>24/7 Emergency Towing</li>
+        </ul>
+        <div class="auth-rule"></div>
+      </div>
+      <div class="auth-grid-bg"></div>
+    </div>
+    <div class="auth-right">
+      <div class="auth-form-box">
+        <div class="auth-logo-sm">🔧 WRENCH</div>
+        <h2 class="auth-form-title">SIGN IN</h2>
+        <p class="auth-form-sub">Welcome back. Pick up where you left off.</p>
+        <div id="loginErr" class="err-block hidden"></div>
+        <div class="form-stack">
+          <div class="field-group">
+            <label class="field-label">EMAIL ADDRESS</label>
+            <input id="loginEmail" type="email" class="field" placeholder="you@example.com"/>
           </div>
-          <p class="auth-switch">No account? <a href="#" id="goSignup">Create one →</a></p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════
-       PAGE: SIGNUP
-  ═══════════════════════════════════════════ -->
-  <div id="pg-signup" class="page hidden">
-    <div class="auth-layout">
-      <div class="auth-panel-left">
-        <div class="auth-left-inner">
-          <div class="auth-brand">WRENCH</div>
-          <h2 class="auth-headline">JOIN THE<br/>DRIVER<br/>COMMUNITY</h2>
-          <p class="auth-sub-copy">Create an account and access Malaysia's largest network of trusted car repair professionals.</p>
-          <div class="auth-decorline"></div>
-        </div>
-      </div>
-      <div class="auth-panel-right">
-        <div class="auth-form-wrap">
-          <h3 class="auth-form-title">CREATE ACCOUNT</h3>
-          <div id="signupErr" class="err-banner hidden"></div>
-          <div class="form-stack">
-            <div class="field-group">
-              <label class="field-label">Full Name</label>
-              <input id="signupName" type="text" class="field" placeholder="Ahmad Razif" />
+          <div class="field-group">
+            <label class="field-label">PASSWORD</label>
+            <div class="field-eye-wrap">
+              <input id="loginPassword" type="password" class="field" placeholder="••••••••"/>
+              <button type="button" class="eye-btn" id="toggleLoginPw">👁</button>
             </div>
-            <div class="field-group">
-              <label class="field-label">Email Address</label>
-              <input id="signupEmail" type="email" class="field" placeholder="you@example.com" />
-            </div>
-            <div class="field-group">
-              <label class="field-label">Phone Number</label>
-              <input id="signupPhone" type="tel" class="field" placeholder="+60 12 345 6789" />
-            </div>
-            <div class="field-group">
-              <label class="field-label">Password</label>
-              <input id="signupPassword" type="password" class="field" placeholder="Min. 8 characters" />
-            </div>
-            <button id="signupBtn" class="btn btn-primary btn-block btn-lg">CREATE ACCOUNT</button>
           </div>
-          <p class="auth-switch">Already have an account? <a href="#" id="goLogin">Sign in →</a></p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════
-       MAIN APP SHELL
-  ═══════════════════════════════════════════ -->
-  <div id="app" class="hidden">
-
-    <!-- TOP NAV -->
-    <header class="topnav" id="topnav">
-      <div class="nav-inner">
-        <div class="nav-brand" data-nav="home">WRENCH</div>
-        <nav class="nav-links">
-          <a class="nav-link active" data-nav="home">Home</a>
-          <a class="nav-link" data-nav="shops">Find Shops</a>
-          <a class="nav-link" data-nav="appointments">Bookings</a>
-          <a class="nav-link" data-nav="ai">AI Diagnosis</a>
-          <a class="nav-link" data-nav="reminders">Reminders</a>
-        </nav>
-        <div class="nav-right">
-          <button class="nav-user-btn" data-nav="profile">
-            <div class="user-avatar" id="navAvatar">?</div>
-            <span id="navName">User</span>
+          <button id="loginBtn" class="btn btn-primary btn-block btn-lg">SIGN IN</button>
+          <div class="divider-row"><span>or</span></div>
+          <button id="googleBtn" class="btn btn-outline btn-block">
+            <svg width="16" height="16" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.25-.164-1.84H9v3.48h4.844a4.14 4.14 0 01-1.796 2.717v2.258h2.908C16.658 14.251 17.64 11.945 17.64 9.2z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A9 9 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A9 9 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.581C13.463.891 11.426 0 9 0A9 9 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+            Continue with Google
           </button>
         </div>
+        <p class="auth-switch">No account? <a href="#" id="goSignup">Create one free →</a></p>
       </div>
-    </header>
+    </div>
+  </div>
+</div>
 
-    <!-- ─── APP PAGE: HOME ─── -->
-    <section id="ap-home" class="ap active">
-      <div class="hero-strip">
-        <div class="hero-inner">
-          <div class="hero-text">
-            <div class="hero-eyebrow">📍 Location Active — Kuala Lumpur</div>
-            <h1 class="hero-title">FIND A TRUSTED<br/><em>REPAIR SHOP</em><br/>NEAR YOU</h1>
-            <p class="hero-sub">Search 500+ verified workshops by brand, service or area. Book in under 60 seconds.</p>
-            <div class="hero-search-row">
-              <input id="heroSearchInput" class="field hero-field" placeholder="Search by shop name, brand, area…" />
-              <button class="btn btn-fire btn-lg" id="heroSearchBtn">SEARCH</button>
+<!-- ▓▓ PAGE: SIGNUP ▓▓ -->
+<div id="pg-signup" class="page hidden">
+  <div class="auth-split">
+    <div class="auth-left">
+      <div class="auth-left-content">
+        <div class="auth-brand-tag">WRENCH</div>
+        <h1 class="auth-headline">JOIN 50,000+<br/>DRIVERS WHO<br/>TRUST WRENCH</h1>
+        <p class="auth-left-copy">Find trusted mechanics, book instantly, track maintenance — all in one place. Free forever.</p>
+        <div class="auth-rule"></div>
+      </div>
+      <div class="auth-grid-bg"></div>
+    </div>
+    <div class="auth-right">
+      <div class="auth-form-box">
+        <div class="auth-logo-sm">🔧 WRENCH</div>
+        <h2 class="auth-form-title">CREATE ACCOUNT</h2>
+        <p class="auth-form-sub">Free forever. No credit card needed.</p>
+        <div id="signupErr" class="err-block hidden"></div>
+        <div class="form-stack">
+          <div class="field-group">
+            <label class="field-label">FULL NAME</label>
+            <input id="signupName" type="text" class="field" placeholder="Ahmad Razif"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">EMAIL ADDRESS</label>
+            <input id="signupEmail" type="email" class="field" placeholder="you@example.com"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">PHONE NUMBER</label>
+            <input id="signupPhone" type="tel" class="field" placeholder="+60 12-345 6789"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">PASSWORD</label>
+            <div class="field-eye-wrap">
+              <input id="signupPassword" type="password" class="field" placeholder="Min. 8 characters"/>
+              <button type="button" class="eye-btn" id="toggleSignupPw">👁</button>
             </div>
           </div>
-          <div class="hero-gfx" aria-hidden="true">
-            <div class="gfx-ring gfx-ring-1"></div>
-            <div class="gfx-ring gfx-ring-2"></div>
-            <div class="gfx-wrench">🔧</div>
+          <button id="signupBtn" class="btn btn-primary btn-block btn-lg">CREATE ACCOUNT</button>
+        </div>
+        <p class="auth-switch">Already have an account? <a href="#" id="goLogin">Sign in →</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ▓▓ MAIN APP ▓▓ -->
+<div id="app" class="hidden">
+
+  <!-- TOP NAV -->
+  <header class="topnav">
+    <div class="nav-inner">
+      <div class="nav-logo" data-nav="home">WRENCH</div>
+      <nav class="nav-links">
+        <a class="nav-link" data-nav="home">🏠 Home</a>
+        <a class="nav-link" data-nav="shops">🔍 Shops</a>
+        <a class="nav-link" data-nav="appointments">📅 Bookings</a>
+        <a class="nav-link" data-nav="ai">🤖 AI Diagnosis</a>
+        <a class="nav-link" data-nav="reminders">🔔 Reminders</a>
+      </nav>
+      <div class="nav-right">
+        <button class="nav-user" data-nav="profile">
+          <div class="nav-avatar" id="navAvatar">?</div>
+          <span id="navName">User</span>
+          <span class="nav-caret">▾</span>
+        </button>
+      </div>
+      <button class="burger" id="burgerBtn">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-drawer hidden" id="mobileDrawer">
+      <a class="drawer-link" data-nav="home" data-cm>🏠 Home</a>
+      <a class="drawer-link" data-nav="shops" data-cm>🔍 Find Shops</a>
+      <a class="drawer-link" data-nav="appointments" data-cm>📅 My Bookings</a>
+      <a class="drawer-link" data-nav="ai" data-cm>🤖 AI Diagnosis</a>
+      <a class="drawer-link" data-nav="reminders" data-cm>🔔 Reminders</a>
+      <a class="drawer-link" data-nav="favorites" data-cm>❤️ Saved Shops</a>
+      <a class="drawer-link" data-nav="tow" data-cm>🚛 Tow Truck</a>
+      <a class="drawer-link" data-nav="profile" data-cm>👤 Profile</a>
+    </div>
+  </header>
+
+  <!-- ═══ APP PAGE: HOME ═══ -->
+  <section id="ap-home" class="ap active">
+    <div class="hero">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-glow-a" aria-hidden="true"></div>
+      <div class="hero-glow-b" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <div class="hero-badge">📍 Kuala Lumpur · GPS Active</div>
+          <h1 class="hero-title">FIND A TRUSTED<br/><span class="hero-accent">REPAIR SHOP</span><br/>NEAR YOU</h1>
+          <p class="hero-desc">Search 500+ verified workshops by brand, service or area. Instant booking. Real reviews.</p>
+          <div class="hero-search-bar">
+            <input id="heroInput" class="field hero-input" type="text" placeholder="Search by name, brand or area…"/>
+            <button id="heroSearchBtn" class="btn btn-fire btn-lg">🔍 SEARCH</button>
           </div>
+        </div>
+        <div class="hero-gfx" aria-hidden="true">
+          <div class="gfx-ring r1"></div>
+          <div class="gfx-ring r2"></div>
+          <div class="gfx-emoji">🔧</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-body">
+      <div class="sec-label">QUICK ACTIONS</div>
+      <div class="action-grid">
+        <div class="a-tile a-blue" data-nav="brands">
+          <div class="a-ico">🔧</div>
+          <div class="a-name">Find Repair Shop</div>
+          <div class="a-hint">Browse by car brand</div>
+        </div>
+        <div class="a-tile a-red" id="emergencyBtn">
+          <div class="a-ico">🚨</div>
+          <div class="a-name">Emergency Repair</div>
+          <div class="a-hint">Nearest open shop now</div>
+        </div>
+        <div class="a-tile a-purple" data-nav="ai">
+          <div class="a-ico">🤖</div>
+          <div class="a-name">AI Diagnosis</div>
+          <div class="a-hint">Describe your problem</div>
+        </div>
+        <div class="a-tile a-orange" data-nav="tow">
+          <div class="a-ico">🚛</div>
+          <div class="a-name">Tow Truck</div>
+          <div class="a-hint">Request towing 24/7</div>
         </div>
       </div>
 
-      <div class="page-content">
-        <!-- Quick Actions -->
-        <div class="section-label">QUICK ACTIONS</div>
-        <div class="action-grid">
-          <div class="action-tile tile-blue" data-nav="brands">
-            <div class="tile-icon">🔧</div>
-            <div class="tile-name">Find Repair Shop</div>
-            <div class="tile-hint">By brand or location</div>
-          </div>
-          <div class="action-tile tile-red" id="emergencyTile">
-            <div class="tile-icon">🚨</div>
-            <div class="tile-name">Emergency Repair</div>
-            <div class="tile-hint">Nearest open shop</div>
-          </div>
-          <div class="action-tile tile-purple" data-nav="ai">
-            <div class="tile-icon">🤖</div>
-            <div class="tile-name">AI Diagnosis</div>
-            <div class="tile-hint">Describe your problem</div>
-          </div>
-          <div class="action-tile tile-orange" data-nav="tow">
-            <div class="tile-icon">🚛</div>
-            <div class="tile-name">Tow Truck</div>
-            <div class="tile-hint">Request towing now</div>
-          </div>
-        </div>
-
-        <!-- Nearby Shops -->
-        <div class="section-row">
-          <div class="section-label">NEARBY SHOPS</div>
-          <button class="text-link" data-nav="shops">View all →</button>
-        </div>
-        <div id="homeShops" class="shop-grid">
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
-        </div>
+      <div class="sec-row">
+        <div class="sec-label">NEARBY SHOPS</div>
+        <button class="link-btn" data-nav="shops">View all →</button>
       </div>
-    </section>
-
-    <!-- ─── APP PAGE: BRAND SELECTION ─── -->
-    <section id="ap-brands" class="ap hidden">
-      <div class="page-content">
-        <div class="page-head">
-          <button class="back-btn" id="brandsBack">← Back</button>
-          <h2 class="page-title">SELECT YOUR BRAND</h2>
-          <p class="page-sub">We'll show shops that specialise in your car</p>
-        </div>
-        <div id="brandGrid" class="brand-grid"></div>
-        <div class="page-cta-row">
-          <button class="btn btn-outline btn-lg" id="allShopsBtn">Show All Shops</button>
-        </div>
+      <div id="homeShops" class="shop-grid">
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- ─── APP PAGE: SHOPS LIST ─── -->
-    <section id="ap-shops" class="ap hidden">
-      <div class="shops-header">
-        <div class="page-content">
-          <div class="shops-search-row">
-            <input id="shopsSearchInput" class="field" placeholder="Search shops…" />
-            <button class="btn btn-outline btn-icon" data-nav="map" title="Map view">🗺</button>
+  <!-- ═══ APP PAGE: BRANDS ═══ -->
+  <section id="ap-brands" class="ap hidden">
+    <div class="pw">
+      <div class="ph">
+        <button class="back-btn" id="brandsBack">← Back</button>
+        <h2 class="page-title">SELECT YOUR BRAND</h2>
+        <p class="page-sub">We'll show workshops that specialise in your car</p>
+      </div>
+      <div id="brandGrid" class="brand-grid"></div>
+      <div style="text-align:center;margin-top:28px">
+        <button class="btn btn-outline btn-lg" id="allShopsBtn">Show All Shops</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: SHOPS LIST ═══ -->
+  <section id="ap-shops" class="ap hidden">
+    <div class="shops-sticky">
+      <div class="pw">
+        <div class="shops-search-row">
+          <input id="shopsInput" class="field" type="text" placeholder="Search shops…"/>
+          <button class="btn btn-outline btn-icon" data-nav="map" title="Map view">🗺</button>
+        </div>
+        <div id="brandChips" class="chip-row"></div>
+      </div>
+    </div>
+    <div class="pw" style="padding-top:24px">
+      <div class="sec-row">
+        <h2 class="page-title" id="shopsTitle">ALL SHOPS</h2>
+        <span class="result-cnt" id="shopsCount"></span>
+      </div>
+      <div id="shopsGrid" class="shop-grid">
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: SHOP DETAIL ═══ -->
+  <section id="ap-shop-detail" class="ap hidden">
+    <div class="detail-hero" id="detailHero">
+      <div class="detail-hero-ph">🔧</div>
+      <button class="float-btn fb-back" id="detailBackBtn">←</button>
+      <button class="float-btn fb-fav" id="detailFavBtn">🤍</button>
+    </div>
+    <div id="detailBody" class="pw detail-pw">
+      <div class="spin-box"><div class="spinner"></div></div>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: MAP ═══ -->
+  <section id="ap-map" class="ap hidden">
+    <div class="map-ph">
+      <div class="map-ph-icon">🗺️</div>
+      <h2 class="page-title">MAP VIEW</h2>
+      <p class="page-sub" style="max-width:380px;margin:10px auto 20px">
+        Add your Google Maps API key to enable interactive shop pins with routing.
+      </p>
+      <button class="btn btn-outline" data-nav="shops">← Back to List</button>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: BOOKING ═══ -->
+  <section id="ap-booking" class="ap hidden">
+    <div class="pw booking-pw">
+      <div class="ph">
+        <button class="back-btn" id="bookingBackBtn">← Back</button>
+        <h2 class="page-title">BOOK APPOINTMENT</h2>
+      </div>
+
+      <div class="booking-shop-card">
+        <span class="bsc-label">BOOKING FOR</span>
+        <span class="bsc-name" id="bookingShopName">—</span>
+      </div>
+
+      <div class="bstep"><div class="bstep-num">01</div><div class="bstep-body">
+        <div class="bstep-title">CHOOSE A SERVICE</div>
+        <select id="bookingService" class="field field-select"><option value="">Select service…</option></select>
+      </div></div>
+
+      <div class="bstep"><div class="bstep-num">02</div><div class="bstep-body">
+        <div class="bstep-title">PICK A DATE</div>
+        <div id="dateRail" class="date-rail"></div>
+      </div></div>
+
+      <div class="bstep"><div class="bstep-num">03</div><div class="bstep-body">
+        <div class="bstep-title">CHOOSE TIME SLOT</div>
+        <div id="slotGrid" class="slot-grid"><span class="slot-hint">← Pick a date first</span></div>
+      </div></div>
+
+      <div class="bstep"><div class="bstep-num">04</div><div class="bstep-body">
+        <div class="bstep-title">YOUR CAR DETAILS</div>
+        <div class="form-stack">
+          <select id="bookingBrand" class="field field-select"><option value="">Car brand…</option></select>
+          <div class="two-col">
+            <input id="bookingModel" class="field" placeholder="Model (e.g. Camry 2.5)"/>
+            <input id="bookingPlate" class="field" placeholder="Plate (e.g. WXY 1234)"/>
           </div>
-          <div id="brandFilters" class="chip-row"></div>
+          <textarea id="bookingNotes" class="field field-area" rows="3" placeholder="Describe the problem or any notes…"></textarea>
         </div>
+      </div></div>
+
+      <div class="booking-summary" id="bookingSummary">
+        <div class="bsum-row"><span>Service</span><span id="sumService">—</span></div>
+        <div class="bsum-row"><span>Date &amp; Time</span><span id="sumDateTime">—</span></div>
+        <div class="bsum-row"><span>Car</span><span id="sumCar">—</span></div>
       </div>
-      <div class="page-content">
-        <div class="section-row">
-          <h2 class="page-title" id="shopsPageTitle">ALL SHOPS</h2>
-          <span class="count-label" id="shopsCount"></span>
-        </div>
-        <div id="shopsList" class="shop-grid"></div>
+
+      <button id="confirmBookingBtn" class="btn btn-primary btn-block btn-xl">✅ CONFIRM BOOKING</button>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: APPOINTMENTS ═══ -->
+  <section id="ap-appointments" class="ap hidden">
+    <div class="pw">
+      <div class="sec-row">
+        <h2 class="page-title">MY BOOKINGS</h2>
+        <button class="btn btn-ghost btn-sm" id="refreshApptsBtn">↻ Refresh</button>
       </div>
-    </section>
-
-    <!-- ─── APP PAGE: SHOP DETAIL ─── -->
-    <section id="ap-shop-detail" class="ap hidden">
-      <div class="detail-hero" id="detailHero">
-        <div class="detail-hero-placeholder">🔧</div>
-        <button class="float-back" id="detailBack">←</button>
-        <button class="float-fav" id="detailFavBtn">🤍</button>
+      <div class="tab-row" id="apptTabs">
+        <button class="tab active" data-filter="all">All</button>
+        <button class="tab" data-filter="pending">Pending</button>
+        <button class="tab" data-filter="confirmed">Confirmed</button>
+        <button class="tab" data-filter="completed">Completed</button>
+        <button class="tab" data-filter="cancelled">Cancelled</button>
       </div>
-      <div class="page-content" id="detailBody">
-        <div class="loading-state"><div class="spinner"></div></div>
-      </div>
-    </section>
+      <div id="apptList"></div>
+    </div>
+  </section>
 
-    <!-- ─── APP PAGE: MAP ─── -->
-    <section id="ap-map" class="ap hidden">
-      <div class="map-placeholder-page">
-        <div class="map-ph-icon">🗺️</div>
-        <h2 class="map-ph-title">MAP VIEW</h2>
-        <p class="map-ph-sub">Add your Google Maps API key to enable the interactive map. Shops will appear as pins with real-time availability.</p>
-        <button class="btn btn-outline" data-nav="shops">← Back to List View</button>
-      </div>
-    </section>
-
-    <!-- ─── APP PAGE: BOOKING ─── -->
-    <section id="ap-booking" class="ap hidden">
-      <div class="page-content">
-        <div class="page-head">
-          <button class="back-btn" id="bookingBack">← Back</button>
-          <h2 class="page-title">BOOK APPOINTMENT</h2>
-        </div>
-        <div class="booking-shop-card" id="bookingShopCard">
-          <span class="booking-shop-label">SHOP</span>
-          <span class="booking-shop-name" id="bookingShopName">—</span>
-        </div>
-
-        <!-- Step 1: Service -->
-        <div class="booking-step">
-          <div class="step-num">01</div>
-          <div class="step-body">
-            <div class="step-title">CHOOSE SERVICE</div>
-            <select id="bookingService" class="field field-select">
-              <option value="">Select a service…</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Step 2: Date -->
-        <div class="booking-step">
-          <div class="step-num">02</div>
-          <div class="step-body">
-            <div class="step-title">PICK A DATE</div>
-            <div id="dateRail" class="date-rail"></div>
-          </div>
-        </div>
-
-        <!-- Step 3: Time -->
-        <div class="booking-step">
-          <div class="step-num">03</div>
-          <div class="step-body">
-            <div class="step-title">CHOOSE TIME SLOT</div>
-            <div id="slotGrid" class="slot-grid">
-              <span class="slot-hint">Select a date first</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 4: Car Details -->
-        <div class="booking-step">
-          <div class="step-num">04</div>
-          <div class="step-body">
-            <div class="step-title">CAR DETAILS</div>
-            <div class="form-stack">
-              <select id="bookingBrand" class="field field-select">
-                <option value="">Car brand…</option>
-              </select>
-              <div class="grid-half">
-                <input id="bookingModel" class="field" placeholder="Model (e.g. Camry 2.5)" />
-                <input id="bookingPlate" class="field" placeholder="Plate (e.g. WXY 1234)" />
-              </div>
-              <textarea id="bookingNotes" class="field field-area" placeholder="Describe the problem (optional)…"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <button id="confirmBookingBtn" class="btn btn-primary btn-block btn-lg">CONFIRM BOOKING</button>
-      </div>
-    </section>
-
-    <!-- ─── APP PAGE: APPOINTMENTS ─── -->
-    <section id="ap-appointments" class="ap hidden">
-      <div class="page-content">
-        <div class="section-row">
-          <h2 class="page-title">MY BOOKINGS</h2>
-          <button class="btn btn-ghost btn-sm" id="refreshAppts">↻ Refresh</button>
-        </div>
-        <div id="apptList"></div>
-      </div>
-    </section>
-
-    <!-- ─── APP PAGE: FAVORITES ─── -->
-    <section id="ap-favorites" class="ap hidden">
-      <div class="page-content">
+  <!-- ═══ APP PAGE: FAVORITES ═══ -->
+  <section id="ap-favorites" class="ap hidden">
+    <div class="pw">
+      <div class="sec-row">
         <h2 class="page-title">SAVED SHOPS</h2>
-        <div id="favList"></div>
+        <span class="result-cnt" id="favsCount"></span>
       </div>
-    </section>
+      <div id="favGrid" class="shop-grid"></div>
+    </div>
+  </section>
 
-    <!-- ─── APP PAGE: REMINDERS ─── -->
-    <section id="ap-reminders" class="ap hidden">
-      <div class="page-content">
-        <div class="section-row">
-          <h2 class="page-title">MAINTENANCE</h2>
-          <button class="btn btn-fire btn-sm" id="addReminderToggle">+ ADD</button>
-        </div>
-        <div id="addReminderForm" class="inline-form hidden">
-          <div class="form-stack">
-            <div class="grid-half">
-              <select id="reminderType" class="field field-select">
-                <option value="oil_change">🛢️ Oil Change</option>
-                <option value="tire_rotation">🔄 Tire Rotation</option>
-                <option value="engine_check">🔧 Engine Check</option>
-                <option value="brake_check">🛑 Brake Check</option>
-                <option value="air_filter">💨 Air Filter</option>
-                <option value="other">⚙️ Other</option>
-              </select>
-              <input id="reminderTitle" class="field" placeholder="Reminder title" />
+  <!-- ═══ APP PAGE: REMINDERS ═══ -->
+  <section id="ap-reminders" class="ap hidden">
+    <div class="pw" style="max-width:720px">
+      <div class="sec-row">
+        <h2 class="page-title">MAINTENANCE</h2>
+        <button class="btn btn-fire btn-sm" id="addReminderBtn">+ ADD</button>
+      </div>
+      <div id="reminderForm" class="inline-form hidden">
+        <div class="inline-form-title">NEW REMINDER</div>
+        <div class="form-stack">
+          <div class="two-col">
+            <select id="reminderType" class="field field-select">
+              <option value="oil_change">🛢️ Oil Change</option>
+              <option value="tire_rotation">🔄 Tire Rotation</option>
+              <option value="engine_check">🔧 Engine Check</option>
+              <option value="brake_check">🛑 Brake Check</option>
+              <option value="air_filter">💨 Air Filter</option>
+              <option value="battery_check">🔋 Battery Check</option>
+              <option value="other">⚙️ Other</option>
+            </select>
+            <input id="reminderTitle" class="field" placeholder="Reminder title…"/>
+          </div>
+          <div class="two-col">
+            <div class="field-group">
+              <label class="field-label">DUE DATE</label>
+              <input id="reminderDate" class="field" type="date"/>
             </div>
-            <input id="reminderDate" type="date" class="field" />
-            <textarea id="reminderNotes" class="field field-area" placeholder="Notes (optional)…" rows="2"></textarea>
-            <div class="inline-form-actions">
-              <button class="btn btn-primary" id="saveReminderBtn">SAVE</button>
-              <button class="btn btn-ghost" id="cancelReminderBtn">Cancel</button>
+            <div class="field-group">
+              <label class="field-label">MILEAGE (optional)</label>
+              <input id="reminderMileage" class="field" type="number" placeholder="e.g. 85000"/>
             </div>
           </div>
-        </div>
-        <div id="reminderList"></div>
-      </div>
-    </section>
-
-    <!-- ─── APP PAGE: AI DIAGNOSIS ─── -->
-    <section id="ap-ai" class="ap hidden">
-      <div class="ai-layout">
-        <div class="ai-topbar">
-          <div class="ai-brand">🤖 AI FAULT DIAGNOSIS</div>
-          <button class="btn btn-ghost btn-sm" id="clearChatBtn">Clear</button>
-        </div>
-        <div class="quick-problems" id="quickProblems"></div>
-        <div class="chat-feed" id="chatFeed">
-          <div class="bubble bubble-bot">
-            <div class="bubble-text">👋 Hello! I'm WRENCH AI. Describe your car problem and I'll help diagnose the fault and suggest repair shops nearby.</div>
-            <div class="bubble-ts">Now</div>
+          <textarea id="reminderNotes" class="field field-area" rows="2" placeholder="Notes (optional)…"></textarea>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="saveReminderBtn">SAVE</button>
+            <button class="btn btn-ghost"   id="cancelReminderBtn">Cancel</button>
           </div>
         </div>
-        <div class="chat-input-bar">
-          <textarea id="chatInput" class="chat-textarea" placeholder="Describe your car problem…" rows="1"
-            onInput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
-          <button class="chat-send-btn" id="chatSendBtn">➤</button>
-        </div>
       </div>
-    </section>
+      <div id="reminderList"></div>
+    </div>
+  </section>
 
-    <!-- ─── APP PAGE: TOW TRUCK ─── -->
-    <section id="ap-tow" class="ap hidden">
-      <div class="page-content">
-        <div class="tow-emergency-banner">
-          <div class="tow-banner-icon">🚛</div>
+  <!-- ═══ APP PAGE: AI DIAGNOSIS ═══ -->
+  <section id="ap-ai" class="ap hidden">
+    <div class="ai-shell">
+      <div class="ai-topbar">
+        <div class="ai-tb-left">
+          <div class="ai-avatar-box">🤖</div>
           <div>
-            <div class="tow-banner-title">EMERGENCY TOW TRUCK</div>
-            <div class="tow-banner-sub">Drivers typically arrive within 30–45 minutes</div>
+            <div class="ai-name">WRENCH AI</div>
+            <div class="ai-online">● Online · Car Fault Specialist</div>
           </div>
         </div>
-        <div id="towFormWrap">
+        <button class="btn btn-ghost btn-sm" id="clearChatBtn">Clear</button>
+      </div>
+      <div class="ai-chips" id="aiChips"></div>
+      <div class="chat-feed" id="chatFeed">
+        <div class="chat-msg bot-msg">
+          <div class="msg-icon">🤖</div>
+          <div class="msg-bubble">
+            👋 Hello! I'm WRENCH AI — your personal car fault diagnosis assistant.<br/><br/>
+            Describe any problem and I'll help diagnose what's wrong, estimate repair costs, and find the best workshop near you.
+          </div>
+        </div>
+      </div>
+      <div class="chat-bar">
+        <textarea id="chatInput" class="chat-field" rows="1" placeholder="Describe your car problem…"></textarea>
+        <button id="chatSendBtn" class="chat-send-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: TOW TRUCK ═══ -->
+  <section id="ap-tow" class="ap hidden">
+    <div class="pw" style="max-width:680px">
+      <div id="towFormSection">
+        <div class="tow-banner">
+          <div class="tow-pulse">🚛</div>
+          <div>
+            <div class="tow-title">EMERGENCY TOW TRUCK</div>
+            <div class="tow-sub">Available 24/7 · ETA 30–45 minutes</div>
+          </div>
+        </div>
+        <div class="form-card">
           <div class="form-stack">
             <div class="field-group">
-              <label class="field-label">Pickup Location *</label>
-              <input id="towPickup" class="field" placeholder="Your current address" />
+              <label class="field-label">PICKUP LOCATION <span style="color:var(--fire)">*</span></label>
+              <input id="towPickup" class="field" placeholder="Your current address or landmark"/>
             </div>
             <div class="field-group">
-              <label class="field-label">Destination (optional)</label>
-              <input id="towDest" class="field" placeholder="Repair shop or home address" />
+              <label class="field-label">DESTINATION (optional)</label>
+              <input id="towDest" class="field" placeholder="Repair shop or home address"/>
             </div>
-            <div class="grid-half">
+            <div class="two-col">
               <div class="field-group">
-                <label class="field-label">Car Brand</label>
-                <select id="towBrand" class="field field-select">
-                  <option value="">Select brand</option>
-                </select>
+                <label class="field-label">CAR BRAND</label>
+                <select id="towBrand" class="field field-select"><option value="">Select…</option></select>
               </div>
               <div class="field-group">
-                <label class="field-label">Plate Number</label>
-                <input id="towPlate" class="field" placeholder="WXY 1234" />
+                <label class="field-label">PLATE NUMBER</label>
+                <input id="towPlate" class="field" placeholder="WXY 1234"/>
               </div>
             </div>
             <div class="field-group">
-              <label class="field-label">Problem Description</label>
-              <textarea id="towNotes" class="field field-area" placeholder="What happened? e.g. flat tyre, engine won't start" rows="3"></textarea>
+              <label class="field-label">PROBLEM DESCRIPTION</label>
+              <textarea id="towNotes" class="field field-area" rows="3" placeholder="What happened? e.g. flat tyre, engine won't start…"></textarea>
             </div>
-            <button class="btn btn-danger btn-block btn-lg" id="towSubmitBtn">🚛 SEND TOW REQUEST</button>
-          </div>
-        </div>
-        <div id="towSuccess" class="success-state hidden">
-          <div class="success-icon">✅</div>
-          <h2 class="success-title">REQUEST SENT!</h2>
-          <p class="success-sub">A driver will contact you shortly.<br/>Estimated arrival: 30–45 minutes.</p>
-          <button class="btn btn-outline" id="towResetBtn">New Request</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ─── APP PAGE: OWNER DASHBOARD ─── -->
-    <section id="ap-dashboard" class="ap hidden">
-      <div class="page-content">
-        <div class="section-row">
-          <h2 class="page-title">SHOP DASHBOARD</h2>
-          <span class="live-dot">● LIVE</span>
-        </div>
-        <div class="stat-row">
-          <div class="stat-box">
-            <div class="stat-lbl">TODAY'S BOOKINGS</div>
-            <div class="stat-val" id="statBookings">—</div>
-            <div class="stat-trend trend-up">↑ +2 vs yesterday</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-lbl">AVG. RATING</div>
-            <div class="stat-val" id="statRating">—</div>
-            <div class="stat-trend trend-up">↑ Excellent</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-lbl">MONTH REVENUE</div>
-            <div class="stat-val" id="statRevenue">—</div>
-            <div class="stat-trend trend-up">↑ +12% MoM</div>
-          </div>
-        </div>
-        <div class="dashboard-grid">
-          <div class="dash-panel">
-            <div class="dash-panel-title">TODAY'S APPOINTMENTS</div>
-            <div id="dashAppts"></div>
-          </div>
-          <div class="dash-panel">
-            <div class="dash-panel-title">QUICK ACTIONS</div>
-            <div class="dash-actions">
-              <button class="btn btn-outline btn-block btn-sm" data-nav="shops">👁 View My Shop</button>
-              <button class="btn btn-ghost btn-block btn-sm">🛠 Edit Services</button>
-              <button class="btn btn-ghost btn-block btn-sm">🕐 Update Hours</button>
-              <button class="btn btn-ghost btn-block btn-sm">📸 Add Photos</button>
-              <button class="btn btn-ghost btn-block btn-sm">📊 Analytics</button>
-            </div>
+            <button id="towSubmitBtn" class="btn btn-danger btn-block btn-xl">🚛 SEND TOW REQUEST</button>
           </div>
         </div>
       </div>
-    </section>
+      <div id="towSuccessSection" class="success-page hidden">
+        <div class="success-icon">✅</div>
+        <h2 class="success-title">REQUEST SENT!</h2>
+        <p class="success-body">A driver has been notified and will contact you shortly.<br/>Estimated arrival: <strong>30–45 minutes</strong>.</p>
+        <div class="success-card">
+          <div class="sc-row"><span>Status</span><span class="sc-live">● Searching for driver…</span></div>
+          <div class="sc-row"><span>ETA</span><span>30–45 min</span></div>
+          <div class="sc-row"><span>Support</span><span>1800-WRENCH</span></div>
+        </div>
+        <button class="btn btn-outline" id="towResetBtn" style="margin-top:24px">+ New Request</button>
+      </div>
+    </div>
+  </section>
 
-    <!-- ─── APP PAGE: PROFILE ─── -->
-    <section id="ap-profile" class="ap hidden">
-      <div class="page-content">
-        <div class="profile-hero">
-          <div class="profile-avatar-lg" id="profileAvatarLg">?</div>
-          <div class="profile-name" id="profileName">—</div>
+  <!-- ═══ APP PAGE: DASHBOARD ═══ -->
+  <section id="ap-dashboard" class="ap hidden">
+    <div class="pw">
+      <div class="sec-row">
+        <h2 class="page-title">SHOP DASHBOARD</h2>
+        <span class="live-tag">● LIVE</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-lbl">TODAY'S BOOKINGS</div>
+          <div class="stat-val" id="statBookings">—</div>
+          <div class="stat-trend trend-up">↑ +2 vs yesterday</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">AVG. RATING</div>
+          <div class="stat-val" id="statRating">—</div>
+          <div class="stat-trend trend-up">Out of 5.0 ★</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">MONTH REVENUE</div>
+          <div class="stat-val" id="statRevenue">—</div>
+          <div class="stat-trend trend-up">↑ +12% MoM</div>
+        </div>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-panel">
+          <div class="dash-panel-title">TODAY'S APPOINTMENTS</div>
+          <div id="dashAppts"></div>
+        </div>
+        <div class="dash-panel">
+          <div class="dash-panel-title">QUICK ACTIONS</div>
+          <div class="dash-actions">
+            <button class="btn btn-outline btn-block btn-sm" data-nav="shops">👁 View My Shop</button>
+            <button class="btn btn-ghost  btn-block btn-sm">🛠 Edit Services</button>
+            <button class="btn btn-ghost  btn-block btn-sm">🕐 Update Hours</button>
+            <button class="btn btn-ghost  btn-block btn-sm">📸 Upload Photos</button>
+            <button class="btn btn-ghost  btn-block btn-sm">📊 Full Analytics</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ APP PAGE: PROFILE ═══ -->
+  <section id="ap-profile" class="ap hidden">
+    <div class="pw" style="max-width:640px">
+      <div class="profile-hero">
+        <div class="profile-ava" id="profileAvatar">?</div>
+        <div>
+          <div class="profile-name"  id="profileName">—</div>
           <div class="profile-email" id="profileEmail">—</div>
         </div>
-        <div class="profile-menu">
-          <div class="pmenu-item" data-nav="appointments">
-            <div class="pmenu-icon" style="background:#1A1E2E">📅</div>
-            <div class="pmenu-info"><div class="pmenu-label">My Bookings</div><div class="pmenu-sub">View & manage appointments</div></div>
-            <div class="pmenu-arrow">›</div>
-          </div>
-          <div class="pmenu-item" data-nav="favorites">
-            <div class="pmenu-icon" style="background:#1A1512">❤️</div>
-            <div class="pmenu-info"><div class="pmenu-label">Saved Shops</div><div class="pmenu-sub">Your favourite mechanics</div></div>
-            <div class="pmenu-arrow">›</div>
-          </div>
-          <div class="pmenu-item" data-nav="reminders">
-            <div class="pmenu-icon" style="background:#0F1A10">🔔</div>
-            <div class="pmenu-info"><div class="pmenu-label">Maintenance Reminders</div><div class="pmenu-sub">Oil, tyres, engine checks</div></div>
-            <div class="pmenu-arrow">›</div>
-          </div>
-          <div class="pmenu-item" data-nav="tow">
-            <div class="pmenu-icon" style="background:#1A0F0F">🚛</div>
-            <div class="pmenu-info"><div class="pmenu-label">Tow Requests</div><div class="pmenu-sub">Past tow history</div></div>
-            <div class="pmenu-arrow">›</div>
-          </div>
-          <div class="pmenu-item" data-nav="dashboard">
-            <div class="pmenu-icon" style="background:#0F1510">📊</div>
-            <div class="pmenu-info"><div class="pmenu-label">Shop Dashboard</div><div class="pmenu-sub">Manage your repair shop</div></div>
-            <div class="pmenu-arrow">›</div>
-          </div>
-          <div class="pmenu-item pmenu-logout" id="logoutBtn">
-            <div class="pmenu-icon" style="background:#1A0F0F">🚪</div>
-            <div class="pmenu-info"><div class="pmenu-label pmenu-label-danger">Sign Out</div></div>
-          </div>
-        </div>
       </div>
-    </section>
+      <div class="profile-stats">
+        <div class="pstat"><div class="pstat-val" id="psBookings">—</div><div class="pstat-lbl">Bookings</div></div>
+        <div class="pstat"><div class="pstat-val" id="psFavs">—</div><div class="pstat-lbl">Saved</div></div>
+        <div class="pstat"><div class="pstat-val" id="psReviews">—</div><div class="pstat-lbl">Reviews</div></div>
+      </div>
+      <div class="pmenu">
+        <div class="pmenu-item" data-nav="appointments"><div class="pmenu-ico" style="background:#14182a">📅</div><div class="pmenu-txt"><div class="pmenu-lbl">My Bookings</div><div class="pmenu-sub">View &amp; manage appointments</div></div><div class="pmenu-arr">›</div></div>
+        <div class="pmenu-item" data-nav="favorites"><div class="pmenu-ico" style="background:#1a1210">❤️</div><div class="pmenu-txt"><div class="pmenu-lbl">Saved Shops</div><div class="pmenu-sub">Your favourite mechanics</div></div><div class="pmenu-arr">›</div></div>
+        <div class="pmenu-item" data-nav="reminders"><div class="pmenu-ico" style="background:#0f1a10">🔔</div><div class="pmenu-txt"><div class="pmenu-lbl">Maintenance Reminders</div><div class="pmenu-sub">Oil, tyres, engine checks</div></div><div class="pmenu-arr">›</div></div>
+        <div class="pmenu-item" data-nav="tow"><div class="pmenu-ico" style="background:#1a0f0f">🚛</div><div class="pmenu-txt"><div class="pmenu-lbl">Tow Request History</div><div class="pmenu-sub">Past towing requests</div></div><div class="pmenu-arr">›</div></div>
+        <div class="pmenu-item" data-nav="dashboard"><div class="pmenu-ico" style="background:#0f150f">📊</div><div class="pmenu-txt"><div class="pmenu-lbl">Shop Dashboard</div><div class="pmenu-sub">Manage your repair shop</div></div><div class="pmenu-arr">›</div></div>
+        <div class="pmenu-divider"></div>
+        <div class="pmenu-item pmenu-danger" id="logoutBtn"><div class="pmenu-ico" style="background:#1a0a0a">🚪</div><div class="pmenu-txt"><div class="pmenu-lbl pmenu-red">Sign Out</div></div></div>
+      </div>
+    </div>
+  </section>
 
-    <!-- BOTTOM NAV (mobile) -->
-    <nav class="bottom-nav" id="bottomNav">
-      <button class="bnav-item active" data-nav="home"><span class="bnav-icon">🏠</span><span class="bnav-lbl">Home</span></button>
-      <button class="bnav-item" data-nav="shops"><span class="bnav-icon">🔍</span><span class="bnav-lbl">Shops</span></button>
-      <button class="bnav-item" data-nav="ai"><span class="bnav-icon">🤖</span><span class="bnav-lbl">AI</span></button>
-      <button class="bnav-item" data-nav="favorites"><span class="bnav-icon">❤️</span><span class="bnav-lbl">Saved</span></button>
-      <button class="bnav-item" data-nav="profile"><span class="bnav-icon">👤</span><span class="bnav-lbl">Profile</span></button>
-    </nav>
+  <!-- BOTTOM NAV -->
+  <nav class="bnav">
+    <button class="bnav-btn active" data-nav="home"><span>🏠</span><span>Home</span></button>
+    <button class="bnav-btn" data-nav="shops"><span>🔍</span><span>Shops</span></button>
+    <button class="bnav-btn bnav-center" data-nav="ai"><span>🤖</span><span>AI</span></button>
+    <button class="bnav-btn" data-nav="favorites"><span>❤️</span><span>Saved</span></button>
+    <button class="bnav-btn" data-nav="profile"><span>👤</span><span>Profile</span></button>
+  </nav>
 
-  </div><!-- /app -->
-
-  <script src="app.js"></script>
+</div><!-- /app -->
+<script src="app.js"></script>
 </body>
 </html>
