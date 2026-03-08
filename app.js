@@ -19,8 +19,8 @@
 
 /** Supabase project configuration */
 const SUPABASE_CONFIG = {
-  url: 'https://fpjcpwedvowvbnebxcyv.supabase.co',
-  key: 'sb_publishable_sJPO4Dg2wKLlWKanfU2lsg_jA5jReRM'
+  url: 'httpcos://fpjcpwedvowvbnebxcyv.supabase.',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwamNwd2Vkdm93dmJuZWJ4Y3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5ODM3MTcsImV4cCI6MjA4ODU1OTcxN30.b-APeOBKMSWCOqZD3S9YpxJpMFq8VLo1ytxh2BhmhXQ'
 };
 
 /** Myanmar center coordinates for map */
