@@ -126,9 +126,16 @@
          STEP 3: SHOP SEARCH BUTTON
     ═══════════════════════════════════════════ -->
     <section class="section-card" aria-label="Search repair shops">
-      <button id="btnSearch" class="btn btn-primary">
-        🔍 <span data-i18n="btnSearch">Search Repair Shops</span>
-      </button>
+      <div class="btn-group">
+        <button id="btnSearch" class="btn btn-primary">
+          🔍 <span data-i18n="btnSearch">Search Repair Shops</span>
+        </button>
+        <button id="btnLocation" class="btn btn-location">
+          📍 <span data-i18n="btnMyLocation">Use My Location</span>
+        </button>
+      </div>
+      <!-- Location status message -->
+      <div id="locationStatus" class="location-status" aria-live="polite"></div>
     </section>
 
     <!-- ═══════════════════════════════════════════

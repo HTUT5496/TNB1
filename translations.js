@@ -57,6 +57,16 @@ const translations = {
     selectCarAndProblem: "Please select a car and problem first.",
     selectProblemFirst: "Please select a problem first.",
 
+    // Location
+    btnMyLocation: "Use My Location",
+    locating: "Getting your location...",
+    locationFound: "📍 Location found! Shops sorted by distance.",
+    locationError: "Could not get location. Showing all shops.",
+    locationDenied: "Location permission denied. Showing all shops.",
+    locationUnsupported: "Location not supported by this browser.",
+    youAreHere: "You are here",
+    kmAway: "km away",
+
     // Footer
     footerText: "ကား ပြင်ဆိုင် • Built with ❤️ for Myanmar drivers",
 
@@ -116,6 +126,16 @@ const translations = {
     errorLoadShops: "ပြင်ဆိုင်များ ဖတ်ရှုမရပါ။",
     selectCarAndProblem: "ကားနှင့် ပြဿနာကို အရင်ရွေးပါ။",
     selectProblemFirst: "ပြဿနာကို အရင်ရွေးပါ။",
+
+    // Location
+    btnMyLocation: "ကျွန်ုပ်တည်နေရာ သုံးပါ",
+    locating: "တည်နေရာ ရှာဖွေနေသည်...",
+    locationFound: "📍 တည်နေရာ တွေ့ပြီ! ဆိုင်များကို အနီးဆုံးအစဉ် စီထားသည်။",
+    locationError: "တည်နေရာ မရပါ။ ဆိုင်အားလုံး ပြသသည်။",
+    locationDenied: "တည်နေရာ ခွင့်ပြုချက် ငြင်းဆန်သည်။ ဆိုင်အားလုံး ပြသသည်။",
+    locationUnsupported: "ဤဘရောက်ဇာတွင် တည်နေရာ မရရှိနိုင်ပါ။",
+    youAreHere: "သင်ဤနေရာတွင် ရှိသည်",
+    kmAway: "ကီလိုမီတာ အကွာ",
 
     // Footer
     footerText: "ကား ပြင်ဆိုင် • မြန်မာ ယာဉ်မောင်းများအတွက် ❤️ ဖြင့် တည်ဆောက်သည်",

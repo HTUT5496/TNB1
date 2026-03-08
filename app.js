@@ -41,6 +41,8 @@ const state = {
   shops: [],
   map: null,           // Leaflet map instance
   markers: [],         // Map marker references
+  userLocation: null,  // { lat, lng } if granted
+  userMarker: null,    // Leaflet marker for user position
 };
 
 // ============================================================
@@ -323,9 +325,13 @@ async function loadRepairShops() {
 
     if (error) throw error;
 
-    state.shops = data;
-    renderShopList(data);
-    updateMapMarkers(data);
+    // Sort by distance if user location is available
+    const shopsToShow = state.userLocation
+      ? sortShopsByDistance(data, state.userLocation.lat, state.userLocation.lng)
+      : data;
+    state.shops = shopsToShow;
+    renderShopList(shopsToShow);
+    updateMapMarkers(shopsToShow);
 
     // Show shops section
     document.getElementById('shopsSection').classList.add('visible');
@@ -389,7 +395,10 @@ function renderShopList(shops) {
         <div class="shop-icon">🔧</div>
         <div class="shop-info">
           <h3 class="shop-name">${shop.shop_name}</h3>
-          <span class="shop-city">${shop.city}</span>
+          <div class="shop-meta">
+            <span class="shop-city">${shop.city}</span>
+            ${shop.distance !== undefined ? `<span class="shop-distance">📍 ${shop.distance.toFixed(1)} ${t('kmAway')}</span>` : ''}
+          </div>
         </div>
       </div>
       <div class="shop-details">
@@ -509,6 +518,137 @@ function focusShopOnMap(lat, lng) {
     return Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001;
   });
   if (marker) marker.openPopup();
+}
+
+
+// ============================================================
+// LOCATION FUNCTIONS
+// ============================================================
+
+/**
+ * Calculate distance in km between two lat/lng points (Haversine formula)
+ */
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371; // Earth radius km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Place a "You Are Here" marker on the map
+ */
+function placeUserMarker(lat, lng) {
+  if (!state.map || typeof L === 'undefined') return;
+
+  // Remove existing user marker
+  if (state.userMarker) {
+    state.map.removeLayer(state.userMarker);
+    state.userMarker = null;
+  }
+
+  const userIcon = L.divIcon({
+    className: 'user-marker',
+    html: `<div class="user-pin"><span>📍</span></div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+  });
+
+  state.userMarker = L.marker([lat, lng], { icon: userIcon })
+    .addTo(state.map)
+    .bindPopup(`<div class="map-popup"><strong>${t('youAreHere')}</strong></div>`)
+    .openPopup();
+
+  // Pan map to user location
+  state.map.setView([lat, lng], 11, { animate: true });
+}
+
+/**
+ * Sort shops array by distance from user location
+ */
+function sortShopsByDistance(shops, userLat, userLng) {
+  return shops
+    .map(shop => ({
+      ...shop,
+      distance: getDistanceKm(userLat, userLng, shop.latitude, shop.longitude)
+    }))
+    .sort((a, b) => a.distance - b.distance);
+}
+
+/**
+ * Handle "Use My Location" button click
+ * Requests geolocation permission and sorts shops by proximity
+ */
+function onUseMyLocation() {
+  const btn = document.getElementById('btnLocation');
+  const statusEl = document.getElementById('locationStatus');
+
+  // Check browser support
+  if (!navigator.geolocation) {
+    statusEl.textContent = t('locationUnsupported');
+    statusEl.className = 'location-status location-error';
+    return;
+  }
+
+  // Show loading state
+  btn.disabled = true;
+  btn.innerHTML = `⏳ <span>${t('locating')}</span>`;
+  statusEl.textContent = t('locating');
+  statusEl.className = 'location-status location-loading';
+
+  navigator.geolocation.getCurrentPosition(
+    // ✅ SUCCESS
+    async (position) => {
+      const { latitude: lat, longitude: lng } = position.coords;
+      state.userLocation = { lat, lng };
+
+      // Place marker on map
+      placeUserMarker(lat, lng);
+
+      // If shops already loaded, re-sort them by distance
+      if (state.shops.length > 0) {
+        const sorted = sortShopsByDistance(state.shops, lat, lng);
+        state.shops = sorted;
+        renderShopList(sorted);
+        updateMapMarkers(sorted);
+      } else {
+        // Load shops now, they'll be sorted after
+        await loadRepairShops();
+      }
+
+      // Update status
+      statusEl.textContent = t('locationFound');
+      statusEl.className = 'location-status location-success';
+
+      // Reset button
+      btn.disabled = false;
+      btn.innerHTML = `✅ <span data-i18n="btnMyLocation">${t('btnMyLocation')}</span>`;
+    },
+
+    // ❌ ERROR
+    (err) => {
+      let msg = t('locationError');
+      if (err.code === err.PERMISSION_DENIED) msg = t('locationDenied');
+
+      statusEl.textContent = msg;
+      statusEl.className = 'location-status location-error';
+
+      btn.disabled = false;
+      btn.innerHTML = `📍 <span data-i18n="btnMyLocation">${t('btnMyLocation')}</span>`;
+    },
+
+    // Options
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
 }
 
 // ============================================================
@@ -682,6 +822,7 @@ async function init() {
   document.getElementById('carProblem').addEventListener('change', onProblemChange);
   document.getElementById('btnEstimate').addEventListener('click', onEstimatePrice);
   document.getElementById('btnSearch').addEventListener('click', onSearchShops);
+  document.getElementById('btnLocation').addEventListener('click', onUseMyLocation);
   document.getElementById('langToggle').addEventListener('click', toggleLanguage);
 
   console.log('✅ ကား ပြင်ဆိုင် app initialized');
